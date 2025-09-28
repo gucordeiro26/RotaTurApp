@@ -40,7 +40,7 @@ Para uma melhor experiência de desenvolvimento, recomendo instalar as seguintes
 
 1.  **Clone o repositório:**
     ```bash
-    git clone [URL_DO_SEU_REPOSITORIO_GIT]
+    git clone [https://github.com/gucordeiro26/RotaTurApp]
     cd RotaTurApp
     ```
 
