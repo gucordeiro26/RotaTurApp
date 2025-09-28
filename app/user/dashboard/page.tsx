@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,56 +10,48 @@ import { MapPin, Search, Filter, Star, Clock, Users, Heart, Calendar, Compass, B
 import Link from "next/link"
 import { useUser } from "@/app/contexts/UserContext" // Importe o hook
 import { Skeleton } from "@/components/ui/skeleton" // Importe o Skeleton para o loading
+import { supabase } from "@/lib/supabase" // Importe o Supabase
+
+// Definimos um tipo para nossas rotas, para o TypeScript nos ajudar
+type Rota = {
+  id: number
+  nome: string
+  descricao_curta: string
+  categoria: string
+  duracao: string
+  dificuldade: string
+  max_participantes: number
+  preco: number
+  // Adicionaremos mais campos aqui no futuro
+}
 
 export default function UserDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
 
-  const { profile, isLoading } = useUser() // Use o hook para pegar o perfil
+  const { profile, isLoading: isUserLoading } = useUser() // Use o hook para pegar o perfil
 
-  const featuredRoutes = [
-    {
-      id: 1,
-      name: "Caminhada pelo Centro Histórico",
-      publisher: "Tours da Cidade",
-      image: "/placeholder.svg?height=200&width=300",
-      rating: 4.8,
-      reviews: 156,
-      price: 25,
-      duration: "2h",
-      difficulty: "Fácil",
-      participants: "23/30",
-      isBookmarked: false,
-      category: "História",
-    },
-    {
-      id: 2,
-      name: "Trilha da Praia do Pôr do Sol",
-      publisher: "Aventura Cia.",
-      image: "/placeholder.svg?height=200&width=300",
-      rating: 4.9,
-      reviews: 89,
-      price: 35,
-      duration: "3h",
-      difficulty: "Moderado",
-      participants: "15/20",
-      isBookmarked: true,
-      category: "Natureza",
-    },
-    {
-      id: 3,
-      name: "Tour Gastronômico Local",
-      publisher: "Sabores da Cidade",
-      image: "/placeholder.svg?height=200&width=300",
-      rating: 4.7,
-      reviews: 203,
-      price: 45,
-      duration: "2.5h",
-      difficulty: "Fácil",
-      participants: "12/15",
-      isBookmarked: false,
-      category: "Gastronomia",
-    },
-  ]
+  const [rotas, setRotas] = useState<Rota[]>([]) // Estado para guardar as rotas do DB
+  const [isLoadingRoutes, setIsLoadingRoutes] = useState(true)
+
+  // useEffect para buscar as rotas quando a página carregar
+  useEffect(() => {
+    const fetchRotas = async () => {
+      setIsLoadingRoutes(true)
+      const { data, error } = await supabase
+        .from('rotas')
+        .select('*')
+        .limit(3) // Buscamos apenas 3 para o "Destaque"
+
+      if (error) {
+        console.error("Erro ao buscar rotas:", error)
+      } else {
+        setRotas(data)
+      }
+      setIsLoadingRoutes(false)
+    }
+
+    fetchRotas()
+  }, []) // O array vazio [] faz com que isso rode apenas uma vez
 
   const categories = [
     { name: "História", icon: Award, color: "bg-purple-500" },
@@ -88,12 +80,14 @@ export default function UserDashboard() {
   ]
 
   // Se estiver carregando, mostre um esqueleto de UI
-  if (isLoading) {
+  if (isUserLoading) {
     return (
-        <div className="p-4">
-            <Skeleton className="h-8 w-48 mb-2" />
-            <Skeleton className="h-6 w-64" />
-        </div>
+      <div className="p-4 space-y-4">
+        <Skeleton className="h-8 w-48 mb-2" />
+        <Skeleton className="h-6 w-64" />
+        <Skeleton className="h-40 w-full mt-4" />
+        <Skeleton className="h-40 w-full mt-4" />
+      </div>
     )
   }
 
@@ -114,8 +108,8 @@ export default function UserDashboard() {
             </div>
             <Link href="/user/profile">
               <Avatar>
-                <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                <AvatarFallback>MS</AvatarFallback>
+                <AvatarImage src={profile?.url_avatar || "/placeholder.svg?height=32&width=32"} />
+                <AvatarFallback>{profile?.nome_completo?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
             </Link>
           </div>
@@ -157,6 +151,37 @@ export default function UserDashboard() {
             ))}
           </div>
 
+          {/* Rotas em Destaque - AGORA COM DADOS REAIS */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">Rotas em Destaque</h2>
+              <Link href="/user/routes">
+                <Button variant="ghost" size="sm">
+                  Ver Todas
+                </Button>
+              </Link>
+            </div>
+            <div className="space-y-4">
+              {isLoadingRoutes ? (
+                <p>Carregando rotas...</p>
+              ) : (
+                rotas.map((rota) => (
+                  <Card key={rota.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-sm mb-1">{rota.nome}</h3>
+                      {/* Aqui exibimos os dados vindos do banco */}
+                      <p className="text-xs text-gray-600 mb-2">{rota.descricao_curta}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-lg font-bold text-green-600">R$ {rota.preco}</p>
+                        <Badge variant="outline">{rota.dificuldade}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Map Search Button */}
           <Link href="/user/map">
             <Card className="cursor-pointer hover:shadow-md transition-shadow bg-gradient-to-r from-blue-500 to-green-500">
@@ -187,64 +212,22 @@ export default function UserDashboard() {
             </Link>
           </div>
           <div className="space-y-4">
-            {featuredRoutes.map((route) => (
-              <Card key={route.id} className="overflow-hidden">
-                <div className="relative">
-                  <img src={route.image || "/placeholder.svg"} alt={route.name} className="w-full h-40 object-cover" />
-                  <div className="absolute top-3 left-3">
-                    <Badge className="bg-white/90 text-gray-800">{route.category}</Badge>
-                  </div>
-                  <Button variant="ghost" size="sm" className="absolute top-3 right-3 bg-white/90 hover:bg-white">
-                    <Heart className={`w-4 h-4 ${route.isBookmarked ? "fill-red-500 text-red-500" : ""}`} />
-                  </Button>
-                </div>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-sm mb-1">{route.name}</h3>
-                      <p className="text-xs text-gray-600">por {route.publisher}</p>
+            {isLoadingRoutes ? (
+              <p>Carregando rotas...</p>
+            ) : (
+              rotas.map((rota) => (
+                <Card key={rota.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold text-sm mb-1">{rota.nome}</h3>
+                    <p className="text-xs text-gray-600 mb-2">{rota.descricao_curta}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-lg font-bold text-green-600">R$ {rota.preco}</p>
+                      <Badge variant="outline">{rota.dificuldade}</Badge>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-green-600">R$ {route.price}</p>
-                      <p className="text-xs text-gray-500">por pessoa</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-1 mb-3">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-sm font-medium">{route.rating}</span>
-                    <span className="text-xs text-gray-500">({route.reviews} avaliações)</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 mb-3">
-                    <div className="flex items-center space-x-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{route.duration}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Users className="w-3 h-3" />
-                      <span>{route.participants}</span>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      {route.difficulty}
-                    </Badge>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Link href={`/route-details/${route.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full" size="sm">
-                        Ver Detalhes
-                      </Button>
-                    </Link>
-                    <Link href={`/user/booking/${route.id}`} className="flex-1">
-                      <Button className="w-full bg-green-600 hover:bg-green-700" size="sm">
-                        Reservar
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </div>
 
