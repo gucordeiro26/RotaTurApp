@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { UserProvider } from './contexts/UserContext' // Importe aqui
+import 'leaflet/dist/leaflet.css'
 
 export const metadata: Metadata = {
   title: 'RotaTur App', // Vamos aproveitar e trocar o título aqui também

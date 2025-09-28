@@ -1,18 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation" // Importe o useRouter
-import { supabase } from "@/lib/supabase" // Importe o cliente Supabase
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MapPin } from "lucide-react"
-import Link from "next/link"
+import Link from "next/link" // Importe o Link
 
 export default function LoginPage() {
-  const [userType, setUserType] = useState("user") // Definimos 'user' como padrão
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -23,25 +21,39 @@ export default function LoginPage() {
     setIsLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({
+    // 1. Tenta fazer o login no Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: email,
       password: password,
     })
 
-    if (error) {
+    if (authError || !authData.user) {
       setError("E-mail ou senha inválidos. Tente novamente.")
       setIsLoading(false)
+      return
+    }
+
+    // 2. Se o login for bem-sucedido, busca o perfil na nossa tabela 'perfis'
+    const { data: profileData, error: profileError } = await supabase
+      .from('perfis')
+      .select('tipo_perfil')
+      .eq('id', authData.user.id)
+      .single()
+
+    if (profileError || !profileData) {
+      setError("Não foi possível encontrar o perfil do usuário.")
+      setIsLoading(false)
+      return
+    }
+
+    // 3. Com o perfil em mãos, redireciona para o dashboard correto
+    const userRole = profileData.tipo_perfil
+    if (userRole === "admin") {
+      router.push("/admin/dashboard")
+    } else if (userRole === "publicador") {
+      router.push("/publisher/dashboard")
     } else {
-      // Redireciona para o dashboard correto com base no tipo de usuário
-      // Em um app real, o tipo de usuário viria do banco de dados, não do select.
-      // Por enquanto, vamos manter a lógica do select para navegação.
-      if (userType === "admin") {
-        router.push("/admin/dashboard")
-      } else if (userType === "publisher") {
-        router.push("/publisher/dashboard")
-      } else {
-        router.push("/user/dashboard")
-      }
+      router.push("/user/dashboard")
     }
   }
 
@@ -76,19 +88,8 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="userType">Tipo de Usuário</Label>
-            <Select value={userType} onValueChange={setUserType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o tipo de usuário" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Administrador</SelectItem>
-                <SelectItem value="publisher">Publicador de Rotas</SelectItem>
-                <SelectItem value="user">Usuário Regular</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          
+          {/* REMOVEMOS O SELECT DE TIPO DE USUÁRIO */}
 
           {error && <p className="text-sm font-medium text-red-500">{error}</p>}
 
