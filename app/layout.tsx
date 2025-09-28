@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
-import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import { UserProvider } from './contexts/UserContext' // Importe aqui
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  title: 'RotaTur App', // Vamos aproveitar e trocar o título aqui também
+  description: 'Plataforma de Gestão de Rotas Turísticas',
 }
 
 export default function RootLayout({
@@ -27,8 +26,9 @@ html {
         `}</style>
       </head>
       <body>
-        {children}
-        <Analytics />
+        <UserProvider> {/* Envolva o children aqui */}
+          {children}
+        </UserProvider>
       </body>
     </html>
   )

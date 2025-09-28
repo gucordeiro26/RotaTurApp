@@ -8,9 +8,13 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MapPin, Search, Filter, Star, Clock, Users, Heart, Calendar, Compass, Bookmark, Award } from "lucide-react"
 import Link from "next/link"
+import { useUser } from "@/app/contexts/UserContext" // Importe o hook
+import { Skeleton } from "@/components/ui/skeleton" // Importe o Skeleton para o loading
 
 export default function UserDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
+
+  const { profile, isLoading } = useUser() // Use o hook para pegar o perfil
 
   const featuredRoutes = [
     {
@@ -83,6 +87,16 @@ export default function UserDashboard() {
     },
   ]
 
+  // Se estiver carregando, mostre um esqueleto de UI
+  if (isLoading) {
+    return (
+        <div className="p-4">
+            <Skeleton className="h-8 w-48 mb-2" />
+            <Skeleton className="h-6 w-64" />
+        </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -94,7 +108,7 @@ export default function UserDashboard() {
                 <MapPin className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold">Olá, Maria!</h1>
+                <h1 className="text-xl font-semibold">Olá, {profile?.nome_completo || 'Viajante'}!</h1>
                 <p className="text-sm text-gray-600">Descubra novas aventuras</p>
               </div>
             </div>

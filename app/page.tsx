@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation" // Importe o useRouter
+import { supabase } from "@/lib/supabase" // Importe o cliente Supabase
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +12,38 @@ import { MapPin } from "lucide-react"
 import Link from "next/link"
 
 export default function LoginPage() {
-  const [userType, setUserType] = useState("")
+  const [userType, setUserType] = useState("user") // Definimos 'user' como padrão
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+
+  const handleLogin = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    })
+
+    if (error) {
+      setError("E-mail ou senha inválidos. Tente novamente.")
+      setIsLoading(false)
+    } else {
+      // Redireciona para o dashboard correto com base no tipo de usuário
+      // Em um app real, o tipo de usuário viria do banco de dados, não do select.
+      // Por enquanto, vamos manter a lógica do select para navegação.
+      if (userType === "admin") {
+        router.push("/admin/dashboard")
+      } else if (userType === "publisher") {
+        router.push("/publisher/dashboard")
+      } else {
+        router.push("/user/dashboard")
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center p-4">
@@ -25,11 +58,23 @@ export default function LoginPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" placeholder="Digite seu e-mail" />
+            <Input
+              id="email"
+              type="email"
+              placeholder="Digite seu e-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Senha</Label>
-            <Input id="password" type="password" placeholder="Digite sua senha" />
+            <Input
+              id="password"
+              type="password"
+              placeholder="Digite sua senha"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="userType">Tipo de Usuário</Label>
@@ -39,29 +84,27 @@ export default function LoginPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="admin">Administrador</SelectItem>
-                <SelectItem value="publisher">Publicador de Rotas Privadas</SelectItem>
+                <SelectItem value="publisher">Publicador de Rotas</SelectItem>
                 <SelectItem value="user">Usuário Regular</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <Link
-            href={
-              userType === "admin"
-                ? "/admin/dashboard"
-                : userType === "publisher"
-                  ? "/publisher/dashboard"
-                  : "/user/dashboard"
-            }
+
+          {error && <p className="text-sm font-medium text-red-500">{error}</p>}
+
+          <Button
+            onClick={handleLogin}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            disabled={isLoading || !email || !password}
           >
-            <Button className="w-full bg-blue-600 hover:bg-blue-700" disabled={!userType}>
-              Entrar
-            </Button>
-          </Link>
+            {isLoading ? "Entrando..." : "Entrar"}
+          </Button>
+
           <div className="text-center text-sm text-gray-600">
             Não tem uma conta?{" "}
-            <a href="#" className="text-blue-600 hover:underline">
+            <Link href="/signup" className="text-blue-600 hover:underline">
               Cadastre-se
-            </a>
+            </Link>
           </div>
         </CardContent>
       </Card>
