@@ -1,14 +1,12 @@
 "use client"
 
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
-import 'leaflet-routing-machine/dist/leaflet-routing-machine.css'
-import L, { Icon } from 'leaflet'
-import { useEffect } from 'react'
-import 'leaflet-routing-machine'
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet'
+import L, { Icon, LatLngExpression } from 'leaflet'
+import { useEffect, useState } from 'react'
 import { Button } from './ui/button'
 import Link from 'next/link'
 
+// --- Ícones Personalizados (sem alterações) ---
 const createIcon = (color: string) => new Icon({
     iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -17,6 +15,7 @@ const createIcon = (color: string) => new Icon({
 const startIcon = createIcon('green');
 const endIcon = createIcon('red');
 const interestIcon = createIcon('blue');
+// --- Fim dos Ícones ---
 
 export type Ponto = { id?: number; lat: number; lng: number; nome?: string; }
 export type RotaParaMapa = {
@@ -25,34 +24,50 @@ export type RotaParaMapa = {
     pontos_interesse: Ponto[];
 }
 
+// --- INÍCIO DA CORREÇÃO ---
 const Routing = ({ rota }: { rota: RotaParaMapa }) => {
     const map = useMap();
+    const [routePolyline, setRoutePolyline] = useState<LatLngExpression[] | null>(null);
+
     useEffect(() => {
         if (!rota.origem_coords) return;
-        const waypoints = [L.latLng(rota.origem_coords.lat, rota.origem_coords.lng)];
-        rota.pontos_interesse.forEach(p => waypoints.push(L.latLng(p.lat, p.lng)));
+
+        const waypoints = [
+            rota.origem_coords,
+            ...rota.pontos_interesse,
+        ];
         if (rota.destino_coords) {
-            waypoints.push(L.latLng(rota.destino_coords.lat, rota.destino_coords.lng));
+            waypoints.push(rota.destino_coords);
         }
+
         if (waypoints.length < 2) return;
 
-        const routingControl = L.Routing.control({
-            waypoints,
-            show: false,
-            addWaypoints: false,
-            createMarker: () => false,
-            lineOptions: { styles: [{ color: '#007BFF', opacity: 0.7, weight: 5 }] }
-        } as any).addTo(map);
+        // Formata as coordenadas para a API do OSRM
+        const coordsString = waypoints.map(p => `${p.lng},${p.lat}`).join(';');
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
 
-        routingControl.on('routesfound', (e) => {
-            const routes = e.routes;
-            if (routes.length > 0) map.fitBounds(routes[0].bounds, { padding: [50, 50] });
-        });
+        // Faz a chamada direta à API de roteamento
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0].geometry.coordinates;
+                    // O OSRM devolve [lng, lat], mas o Leaflet quer [lat, lng], então invertemos
+                    const latlngs = route.map((coord: number[]) => [coord[1], coord[0]]);
+                    setRoutePolyline(latlngs);
+                    // Ajusta o zoom para a nova rota
+                    map.fitBounds(latlngs);
+                }
+            })
+            .catch(err => console.error("Erro ao buscar a rota:", err));
 
-        return () => { if (map && routingControl) map.removeControl(routingControl); };
     }, [map, rota]);
-    return null;
+
+    // Renderiza o componente Polyline com as coordenadas da rota
+    return routePolyline ? <Polyline pathOptions={{ color: '#007BFF', weight: 5, opacity: 0.7 }} positions={routePolyline} /> : null;
 }
+// --- FIM DA CORREÇÃO ---
+
 
 type MapProps = { rota: RotaParaMapa; }
 const mapStyle = { height: '100%', width: '100%' };

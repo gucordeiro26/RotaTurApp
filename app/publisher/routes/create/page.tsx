@@ -20,26 +20,25 @@ type ModoEdicao = 'inicio' | 'fim' | 'interesse';
 
 // Estado unificado para todos os campos do formulário
 const initialState = {
-    nome: "",
-    descricao_curta: "",
-    descricao: "",
-    categoria: "historia",
-    duracao: "2h",
-    dificuldade: "Fácil",
-    max_participantes: 20,
-    preco: 0,
+  nome: "",
+  descricao_curta: "",
+  descricao: "",
+  categoria: "historia",
+  duracao: "2h",
+  dificuldade: "Fácil",
+  max_participantes: 20,
+  preco: 0,
 };
 
 export default function CreateRoute() {
   const router = useRouter()
   const { user } = useUser()
-  
+
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
-  // Usamos um único estado para o formulário
+
   const [formData, setFormData] = useState(initialState);
-  
+
   const [pontoInicio, setPontoInicio] = useState<Ponto | null>(null);
   const [pontoFim, setPontoFim] = useState<Ponto | null>(null);
   const [pontosDeInteresse, setPontosDeInteresse] = useState<Ponto[]>([])
@@ -47,7 +46,7 @@ export default function CreateRoute() {
 
   const MapEditor = useMemo(() => dynamic(
     () => import('@/components/MapEditor'),
-    { 
+    {
       loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
       ssr: false
     }
@@ -80,11 +79,11 @@ export default function CreateRoute() {
     setIsLoading(true);
     setError(null);
 
-    // 1. Insere a rota principal com todos os novos campos
+    // 1. Insere a rota principal com todos os campos
     const { data: rotaData, error: rotaError } = await supabase
       .from('rotas')
       .insert({
-        ...formData, // Espalha todos os dados do formulário
+        ...formData,
         publicador_id: user.id,
         origem_coords: pontoInicio ? { lat: pontoInicio.lat, lng: pontoInicio.lng } : null,
         destino_coords: pontoFim ? { lat: pontoFim.lat, lng: pontoFim.lng } : null,
@@ -98,7 +97,7 @@ export default function CreateRoute() {
       return;
     }
 
-    // 2. Insere os pontos de interesse (sem alterações aqui)
+    // 2. Insere os pontos de interesse
     if (rotaData && pontosDeInteresse.length > 0) {
       const pontosParaInserir = pontosDeInteresse.map(ponto => ({
         rota_id: rotaData.id,
@@ -116,7 +115,7 @@ export default function CreateRoute() {
         return;
       }
     }
-    
+
     alert("Rota publicada com sucesso!");
     router.push('/publisher/routes');
   };
@@ -126,19 +125,19 @@ export default function CreateRoute() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b flex-shrink-0">
         <div className="px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-                <Link href="/publisher/routes">
-                <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /></Button>
-                </Link>
-                <h1 className="text-xl font-semibold">Criar Nova Rota</h1>
-            </div>
+          <div className="flex items-center space-x-3">
+            <Link href="/publisher/routes">
+              <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /></Button>
+            </Link>
+            <h1 className="text-xl font-semibold">Criar Nova Rota</h1>
+          </div>
         </div>
       </header>
 
       {/* Conteúdo Principal com Rolagem */}
       <main className="flex-grow overflow-y-auto">
         <div className="p-4 space-y-6">
-          {/* Card de Informações Gerais - AGORA COMPLETO */}
+          {/* Card de Informações Gerais */}
           <Card>
             <CardHeader><CardTitle>Informações Gerais</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -196,16 +195,56 @@ export default function CreateRoute() {
             </CardContent>
           </Card>
 
-          {/* Card do Editor de Mapa */}
           <Card>
             <CardHeader>
-                <CardTitle className="text-lg flex items-center"><Map className="w-5 h-5 mr-2" /> Editor de Rota no Mapa</CardTitle>
+              <CardTitle className="text-lg flex items-center"><Map className="w-5 h-5 mr-2" /> Editor de Rota no Mapa</CardTitle>
             </CardHeader>
             <CardContent>
-              {/* ... (conteúdo do mapa não muda) ... */}
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <Button variant={modoEdicao === 'inicio' ? 'default' : 'outline'} onClick={() => setModoEdicao('inicio')}><Play className="w-4 h-4 mr-2" /> Definir Início</Button>
+                  <Button variant={modoEdicao === 'fim' ? 'default' : 'outline'} onClick={() => setModoEdicao('fim')}><Flag className="w-4 h-4 mr-2" /> Definir Fim</Button>
+                  <Button variant={modoEdicao === 'interesse' ? 'default' : 'outline'} onClick={() => setModoEdicao('interesse')}><Pin className="w-4 h-4 mr-2" /> Adicionar Ponto</Button>
+                </div>
+
+                <div className="w-full h-[400px] rounded-md overflow-hidden border">
+                  <MapEditor
+                    pontoInicio={pontoInicio}
+                    pontoFim={pontoFim}
+                    pontosInteresse={pontosDeInteresse}
+                    onAddPonto={handleAddPonto}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  {pontoInicio && (
+                    <div className="flex items-center justify-between p-2 bg-green-50 rounded-md">
+                      <div className="flex items-center space-x-2 font-medium text-green-800 min-w-0"><Play className="h-4 w-4 flex-shrink-0" /><span className="truncate">{pontoInicio.nome || 'Ponto de Início'}</span></div>
+                      <Button variant="ghost" size="sm" onClick={() => setPontoInicio(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                    </div>
+                  )}
+                  {pontoFim && (
+                    <div className="flex items-center justify-between p-2 bg-blue-50 rounded-md">
+                      <div className="flex items-center space-x-2 font-medium text-blue-800 min-w-0"><Flag className="h-4 w-4 flex-shrink-0" /><span className="truncate">{pontoFim.nome || 'Ponto Final'}</span></div>
+                      <Button variant="ghost" size="sm" onClick={() => setPontoFim(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                    </div>
+                  )}
+                  {(pontosDeInteresse.length > 0) && (
+                    <div className="space-y-2 pt-2">
+                      <h4 className="font-medium text-sm">Pontos de Interesse:</h4>
+                      {pontosDeInteresse.map((ponto, index) => (
+                        <li key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md list-none">
+                          <div className="flex items-center space-x-2 min-w-0"><Pin className="h-4 w-4 text-gray-500 flex-shrink-0" /><span className="truncate">{ponto.nome || `Ponto #${index + 1}`}</span></div>
+                          <Button variant="ghost" size="sm" onClick={() => handleRemovePonto(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                        </li>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
-           {error && <p className="text-sm font-medium text-red-500 p-4 bg-red-100 rounded-md">{error}</p>}
+          {error && <p className="text-sm font-medium text-red-500 p-4 bg-red-100 rounded-md">{error}</p>}
         </div>
       </main>
 

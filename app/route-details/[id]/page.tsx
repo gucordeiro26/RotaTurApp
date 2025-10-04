@@ -8,44 +8,19 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  ArrowLeft,
-  MapPin,
-  Clock,
-  Users,
-  DollarSign,
-  Star,
-  Calendar,
-  Share,
-  Heart,
-  MessageSquare,
-  Navigation,
-  Pin,
-} from "lucide-react"
+import { ArrowLeft, MapPin, Clock, Users, DollarSign, Share, Heart, MessageSquare, Navigation, Pin } from "lucide-react"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Ponto, RotaParaMapa } from "@/components/Map" // Importamos os tipos do nosso componente de Mapa
+import { RotaParaMapa } from "@/components/Map"
 
-// Tipos de dados mais completos que esperamos do Supabase
-type PontoDeInteresse = {
-  id: number;
-  nome: string;
-  coords: { lat: number, lng: number };
-}
-
+type PontoDeInteresse = { id: number; nome: string; coords: { lat: number, lng: number }; }
 type RotaCompleta = {
-  id: number
-  nome: string
-  descricao: string | null
-  preco: number | null
-  duracao: string | null
-  dificuldade: string | null
-  categoria: string | null
-  max_participantes: number | null
-  origem_coords: { lat: number, lng: number, nome?: string } | null
-  destino_coords: { lat: number, lng: number, nome?: string } | null
-  perfis: { nome_completo: string | null, url_avatar: string | null } | null
-  pontos_interesse: PontoDeInteresse[]
+  id: number; nome: string; descricao: string | null; preco: number | null; duracao: string | null;
+  dificuldade: string | null; categoria: string | null; max_participantes: number | null;
+  origem_coords: { lat: number, lng: number, nome?: string } | null;
+  destino_coords: { lat: number, lng: number, nome?: string } | null;
+  perfis: { nome_completo: string | null, url_avatar: string | null } | null;
+  pontos_interesse: PontoDeInteresse[];
 }
 
 export default function RouteDetails() {
@@ -55,107 +30,74 @@ export default function RouteDetails() {
   const router = useRouter()
   const routeId = params.id
 
-  // Importação dinâmica do mapa para o lado do cliente
-  const Map = useMemo(() => dynamic(
-    () => import('@/components/Map'),
-    {
-      loading: () => <Skeleton className="w-full h-full rounded-lg" />,
-      ssr: false
-    }
-  ), [])
+  const Map = useMemo(() => dynamic(() => import('@/components/Map'), { 
+    loading: () => <Skeleton className="w-full h-full rounded-lg" />, ssr: false 
+  }), [])
 
   useEffect(() => {
     const fetchRouteDetails = async () => {
       if (!routeId) return
-
       setIsLoading(true)
-
-      // Query que busca a rota, o perfil do publicador E os pontos de interesse associados
       const { data, error } = await supabase
         .from('rotas')
-        .select(`
-          *,
-          perfis ( nome_completo, url_avatar ),
-          pontos_interesse ( * )
-        `)
+        .select(`*, perfis ( nome_completo, url_avatar ), pontos_interesse ( id, nome, coords )`)
         .eq('id', routeId)
         .single()
-
       if (error || !data) {
         console.error("Erro ao buscar detalhes da rota:", error)
-        // Idealmente, redirecionar para uma página 404
-        router.push('/user/dashboard')
+        router.push('/not-found') 
       } else {
         setRota(data as RotaCompleta)
       }
       setIsLoading(false)
     }
-
     fetchRouteDetails()
   }, [routeId, router])
 
   if (isLoading) {
     return (
-      <div className="p-4 space-y-4">
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-8 w-3-4 mt-4" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-32 w-full" />
-      </div>
+        <div className="p-4 space-y-4">
+            <Skeleton className="h-48 w-full" /> <Skeleton className="h-8 w-3/4 mt-4" />
+            <Skeleton className="h-20 w-full" /> <Skeleton className="h-32 w-full" />
+        </div>
     )
   }
 
-  if (!rota) {
-    return <div className="p-4 text-center">Rota não encontrada.</div>
-  }
-
-  // Prepara os dados para o formato que o componente Map espera
+  if (!rota) return <div className="p-4 text-center">Rota não encontrada.</div>
+  
   const rotaParaMapa: RotaParaMapa = {
-    origem_coords: rota.origem_coords,
-    destino_coords: rota.destino_coords,
-    pontos_interesse: rota.pontos_interesse.map(p => ({
-      id: p.id, // Adicionámos o ID aqui
-      lat: p.coords.lat,
-      lng: p.coords.lng,
-      nome: p.nome
-    }))
+      origem_coords: rota.origem_coords,
+      destino_coords: rota.destino_coords,
+      pontos_interesse: rota.pontos_interesse.map(p => ({ 
+          id: p.id, 
+          lat: p.coords.lat, 
+          lng: p.coords.lng, 
+          nome: p.nome 
+      }))
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="flex flex-col h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b flex-shrink-0">
         <div className="px-4 py-3 flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => router.back()}><ArrowLeft className="w-4 h-4" /></Button>
-          <div className="flex space-x-2">
-            <Button variant="ghost" size="sm"><Share className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="sm"><Heart className="w-4 h-4 text-gray-500" /></Button>
-          </div>
+          <div className="flex space-x-2"><Button variant="ghost" size="sm"><Share className="w-4 h-4" /></Button><Button variant="ghost" size="sm"><Heart className="w-4 h-4 text-gray-500" /></Button></div>
         </div>
       </header>
 
-      <main className="pb-24">
+      <main className="flex-grow overflow-y-auto">
         <div className="p-4 space-y-6">
-          {/* Informações Básicas */}
           <div>
             {rota.categoria && <Badge variant="outline" className="mb-2">{rota.categoria}</Badge>}
             <h1 className="text-2xl font-bold mb-2">{rota.nome}</h1>
             <p className="text-gray-700 mb-4">{rota.descricao}</p>
           </div>
 
-          {/* Mapa da Rota */}
           <Card>
-            <CardHeader><CardTitle className="text-lg flex items-center"><Navigation className="w-5 h-5 mr-2" /> Mapa da Rota</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-lg flex items-center"><Navigation className="w-5 h-5 mr-2"/> Mapa da Rota</CardTitle></CardHeader>
             <CardContent>
               <div className="w-full h-[300px] rounded-lg overflow-hidden border">
-                {/* O mapa só é renderizado se houver um ponto de início */}
-                {rotaParaMapa.origem_coords ? (
-                  <Map rota={rotaParaMapa} />
-                ) : (
-                  <div className="flex items-center justify-center h-full bg-gray-100 text-gray-500">
-                    Mapa indisponível.
-                  </div>
-                )}
+                {rotaParaMapa.origem_coords ? <Map rota={rotaParaMapa} /> : <div className="flex items-center justify-center h-full bg-gray-100 text-gray-500">Mapa indisponível.</div>}
               </div>
               {rota.pontos_interesse.length > 0 && (
                 <div className="space-y-2 mt-4">
@@ -172,50 +114,40 @@ export default function RouteDetails() {
               )}
             </CardContent>
           </Card>
-
-          {/* Informações do Publicador */}
+          
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-3">
-                <Avatar>
-                  <AvatarImage src={rota.perfis?.url_avatar || "/placeholder.svg"} />
-                  <AvatarFallback>{rota.perfis?.nome_completo?.charAt(0) || 'P'}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h3 className="font-medium">{rota.perfis?.nome_completo || "Publicador Anônimo"}</h3>
-                </div>
+                <Avatar><AvatarImage src={rota.perfis?.url_avatar || "/placeholder.svg"} /><AvatarFallback>{rota.perfis?.nome_completo?.charAt(0) || 'P'}</AvatarFallback></Avatar>
+                <div className="flex-1"><h3 className="font-medium">{rota.perfis?.nome_completo || "Publicador Anônimo"}</h3></div>
                 <Button variant="outline" size="sm"><MessageSquare className="w-4 h-4 mr-2" /> Contato</Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Estatísticas Rápidas */}
           <div className="grid grid-cols-2 gap-4">
             <Card>
-              <CardContent className="p-4 text-center">
-                <DollarSign className="w-6 h-6 mx-auto text-green-600 mb-2" />
-                <p className="text-2xl font-bold">R$ {rota.preco || 'Grátis'}</p>
-                <p className="text-sm text-gray-600">por pessoa</p>
-              </CardContent>
+                <CardContent className="p-4 text-center">
+                    <DollarSign className="w-6 h-6 mx-auto text-green-600 mb-2" />
+                    <p className="text-2xl font-bold">R$ {rota.preco || 'Grátis'}</p>
+                    <p className="text-sm text-gray-600">por pessoa</p>
+                </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4 text-center">
-                <Clock className="w-6 h-6 mx-auto text-blue-600 mb-2" />
-                <p className="text-2xl font-bold">{rota.duracao || 'N/A'}</p>
-                <p className="text-sm text-gray-600">duração</p>
-              </CardContent>
+                <CardContent className="p-4 text-center">
+                    <Clock className="w-6 h-6 mx-auto text-blue-600 mb-2" />
+                    <p className="text-2xl font-bold">{rota.duracao || 'N/A'}</p>
+                    <p className="text-sm text-gray-600">duração</p>
+                </CardContent>
             </Card>
           </div>
         </div>
       </main>
 
-      {/* Barra de Ação Inferior */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t p-4">
+      <footer className="bg-white border-t p-4 flex-shrink-0">
         <div className="flex space-x-3">
           <Button variant="outline" className="flex-1">Mensagem</Button>
-          <Link href={`/user/plan/${rota.id}`} className="flex-1">
-            <Button className="w-full bg-blue-600 hover:bg-blue-700">Planear Rota</Button>
-          </Link>
+          <Link href={`/user/plan/${rota.id}`} className="flex-1"><Button className="w-full bg-blue-600 hover:bg-blue-700">Planear Rota</Button></Link>
         </div>
       </footer>
     </div>
