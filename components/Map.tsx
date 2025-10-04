@@ -1,77 +1,85 @@
 "use client"
 
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css'
+import L, { Icon } from 'leaflet'
+import { useEffect } from 'react'
+import 'leaflet-routing-machine'
+import { Button } from './ui/button'
+import Link from 'next/link'
 
-// --- Correção para o ícone do marcador ---
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-import iconUrl from 'leaflet/dist/images/marker-icon.png';
-import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-import { Button } from './ui/button';
-import Link from 'next/link';
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: iconRetinaUrl.src,
-    iconUrl: iconUrl.src,
-    shadowUrl: shadowUrl.src,
+const createIcon = (color: string) => new Icon({
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
 });
-// --- Fim da correção ---
+const startIcon = createIcon('green');
+const endIcon = createIcon('red');
+const interestIcon = createIcon('blue');
 
-// Definimos o tipo de dado que o mapa espera receber para cada rota
-type RotaComCoordenadas = {
-    id: number;
-    nome: string;
-    origem_coords: { lat: number; lng: number };
+export type Ponto = { id?: number; lat: number; lng: number; nome?: string; }
+export type RotaParaMapa = {
+    origem_coords: Ponto | null;
+    destino_coords: Ponto | null;
+    pontos_interesse: Ponto[];
 }
 
-type MapProps = {
-    rotas: RotaComCoordenadas[]; // O mapa agora recebe uma lista de rotas
+const Routing = ({ rota }: { rota: RotaParaMapa }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (!rota.origem_coords) return;
+        const waypoints = [L.latLng(rota.origem_coords.lat, rota.origem_coords.lng)];
+        rota.pontos_interesse.forEach(p => waypoints.push(L.latLng(p.lat, p.lng)));
+        if (rota.destino_coords) {
+            waypoints.push(L.latLng(rota.destino_coords.lat, rota.destino_coords.lng));
+        }
+        if (waypoints.length < 2) return;
+
+        const routingControl = L.Routing.control({
+            waypoints,
+            show: false,
+            addWaypoints: false,
+            createMarker: () => false,
+            lineOptions: { styles: [{ color: '#007BFF', opacity: 0.7, weight: 5 }] }
+        } as any).addTo(map);
+
+        routingControl.on('routesfound', (e) => {
+            const routes = e.routes;
+            if (routes.length > 0) map.fitBounds(routes[0].bounds, { padding: [50, 50] });
+        });
+
+        return () => { if (map && routingControl) map.removeControl(routingControl); };
+    }, [map, rota]);
+    return null;
 }
 
-const mapStyle = {
-    height: '100%',
-    width: '100%'
-};
+type MapProps = { rota: RotaParaMapa; }
+const mapStyle = { height: '100%', width: '100%' };
 
-const Map = ({ rotas }: MapProps) => {
-    // Se não houver rotas, centralizamos no Brasil. Se houver, na primeira rota da lista.
-    const initialPosition: L.LatLngExpression = rotas.length > 0 
-        ? [rotas[0].origem_coords.lat, rotas[0].origem_coords.lng] 
-        : [-14.235, -51.9253]; // Coordenadas do centro do Brasil
-
-    const zoomLevel = rotas.length > 0 ? 13 : 4; // Zoom maior se tiver rotas
-
+const Map = ({ rota }: MapProps) => {
+    if (!rota.origem_coords) {
+        return <div className="flex items-center justify-center h-full bg-gray-100"><p>Mapa indisponível.</p></div>;
+    }
     return (
-        <MapContainer center={initialPosition} zoom={zoomLevel} style={mapStyle}>
-            <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+        <MapContainer 
+            center={[rota.origem_coords.lat, rota.origem_coords.lng]} 
+            zoom={13} 
+            style={mapStyle}
+        >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             
-            {/* Criamos um marcador para cada rota na lista */}
-            {rotas.map((rota) => (
-                // Verificamos se a rota tem coordenadas antes de criar o marcador
-                rota.origem_coords && (
-                    <Marker 
-                        key={rota.id} 
-                        position={[rota.origem_coords.lat, rota.origem_coords.lng]}
-                    >
-                        <Popup>
-                            <div className="text-center">
-                                <p className="font-bold">{rota.nome}</p>
-                                <Link href={`/route-details/${rota.id}`}>
-                                    <Button size="sm" className="mt-2">Ver Detalhes</Button>
-                                </Link>
-                            </div>
-                        </Popup>
-                    </Marker>
-                )
+            {rota.origem_coords && <Marker position={[rota.origem_coords.lat, rota.origem_coords.lng]} icon={startIcon}><Popup>{rota.origem_coords.nome || 'Ponto de Início'}</Popup></Marker>}
+            {rota.destino_coords && <Marker position={[rota.destino_coords.lat, rota.destino_coords.lng]} icon={endIcon}><Popup>{rota.destino_coords.nome || 'Ponto Final'}</Popup></Marker>}
+            
+            {rota.pontos_interesse.map((ponto) => (
+                <Marker key={ponto.id || `${ponto.lat}-${ponto.lng}`} position={[ponto.lat, ponto.lng]} icon={interestIcon}>
+                    <Popup>{ponto.nome || `Ponto de Interesse`}</Popup>
+                </Marker>
             ))}
+            
+            <Routing rota={rota} />
         </MapContainer>
     )
 }
-
 export default Map

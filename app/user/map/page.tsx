@@ -7,26 +7,19 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-
-// O tipo de dado que esperamos do banco
-type RotaComCoordenadas = {
-    id: number;
-    nome: string;
-    origem_coords: { lat: number; lng: number };
-}
+import { RotaComCoordenadas } from '@/components/OverviewMap'
 
 export default function MapPage() {
   const [rotas, setRotas] = useState<RotaComCoordenadas[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // Busca as rotas com coordenadas do banco de dados
   useEffect(() => {
     const fetchRotasParaMapa = async () => {
         setIsLoading(true)
         const { data, error } = await supabase
             .from('rotas')
             .select('id, nome, origem_coords')
-            .not('origem_coords', 'is', null) // Traz apenas rotas que tenham coordenadas
+            .not('origem_coords', 'is', null)
 
         if(error) {
             console.error("Erro ao buscar rotas para o mapa:", error)
@@ -40,15 +33,15 @@ export default function MapPage() {
   }, [])
 
   
-  const Map = useMemo(() => dynamic(() => import('@/components/Map'), { 
+  const OverviewMap = useMemo(() => dynamic(() => import('@/components/OverviewMap'), { 
     loading: () => <Skeleton className="w-full h-full" />,
     ssr: false
   }), [])
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b z-10">
+      <header className="bg-white shadow-sm border-b z-10 flex-shrink-0">
         <div className="px-4 py-3 flex items-center space-x-3">
           <Link href="/user/dashboard">
             <Button variant="ghost" size="sm">
@@ -57,13 +50,13 @@ export default function MapPage() {
           </Link>
           <h1 className="text-xl font-semibold">Mapa de Rotas</h1>
         </div>
-      </div>
+      </header>
 
       {/* Container do Mapa */}
-      <div className="flex-grow h-full">
-        {/* Passamos as rotas carregadas como uma propriedade para o componente Map */}
-        {!isLoading && <Map rotas={rotas} />}
-      </div>
+      <main className="flex-grow h-full">
+        {/* Adicionamos uma verificação extra para garantir que o mapa só renderiza quando não está a carregar */}
+        {!isLoading && <OverviewMap rotas={rotas} />}
+      </main>
     </div>
   )
 }
