@@ -73,6 +73,88 @@ export default function PublisherRoutes() {
     fetchMinhasRotas()
   }, [user])
 
+  const handleDeleteRoute = async (rotaId: number) => {
+    // Pede confirmação ao utilizador antes de excluir
+    const isConfirmed = window.confirm("Tem certeza que deseja excluir esta rota? A ação é irreversível!");
+
+    if (isConfirmed) {
+      const { error } = await supabase
+        .from('rotas')
+        .delete()
+        .eq('id', rotaId)
+
+      if (error) {
+        alert(`Erro ao excluir a rota: ${error.message}`);
+      } else {
+        // Remove a rota da lista na interface, sem precisar de recarregar a página
+        setRotas(rotas.filter(rota => rota.id !== rotaId));
+        alert("Rota excluída com sucesso.");
+      }
+    }
+  }
+
+  const handleDuplicateRoute = async (rotaParaDuplicar: Rota) => {
+    if (!user) {
+      alert("Precisa de estar autenticado.");
+      return;
+    }
+
+    const isConfirmed = window.confirm(`Tem a certeza de que deseja duplicar a rota "${rotaParaDuplicar.nome}"?`);
+    if (!isConfirmed) return;
+
+    // 1. Busca todos os dados da rota original, incluindo pontos de interesse
+    const { data: originalRouteData, error: fetchError } = await supabase
+      .from('rotas')
+      .select('*, pontos_interesse(*)')
+      .eq('id', rotaParaDuplicar.id)
+      .single();
+
+    if (fetchError || !originalRouteData) {
+      alert("Erro ao buscar os dados da rota original para duplicar.");
+      return;
+    }
+
+    // 2. Prepara os dados para a nova rota (a cópia)
+    const { id, criado_em, ...dadosParaCopia } = originalRouteData;
+    dadosParaCopia.nome = `${dadosParaCopia.nome} (Cópia)`; // Adiciona "(Cópia)" ao nome
+
+    // 3. Insere a nova rota e obtém o seu novo ID
+    const { data: novaRota, error: insertRotaError } = await supabase
+      .from('rotas')
+      .insert(dadosParaCopia)
+      .select()
+      .single();
+
+    if (insertRotaError || !novaRota) {
+      alert(`Erro ao criar a cópia da rota: ${insertRotaError?.message}`);
+      return;
+    }
+
+    // 4. Se a rota original tinha pontos de interesse, prepara-os para a nova rota
+    const pontosOriginais = originalRouteData.pontos_interesse;
+    if (pontosOriginais && pontosOriginais.length > 0) {
+      const novosPontos = pontosOriginais.map((ponto: any) => ({
+        rota_id: novaRota.id, // Associa ao ID da NOVA rota
+        nome: ponto.nome,
+        coords: ponto.coords,
+        tipo: ponto.tipo,
+      }));
+
+      // 5. Insere os novos pontos de interesse
+      const { error: insertPontosError } = await supabase
+        .from('pontos_interesse')
+        .insert(novosPontos);
+
+      if (insertPontosError) {
+        alert(`A rota foi duplicada, mas houve um erro ao copiar os pontos de interesse: ${insertPontosError.message}`);
+      }
+    }
+
+    // 6. Atualiza a interface adicionando a nova rota à lista
+    setRotas(prevRotas => [novaRota as Rota, ...prevRotas]);
+    alert("Rota duplicada com sucesso!");
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Ativo": return "bg-green-100 text-green-800"
@@ -93,50 +175,50 @@ export default function PublisherRoutes() {
 
   const RouteCard = ({ rota }: { rota: Rota }) => (
     <Card className="overflow-hidden">
-        <CardContent className="flex-1 p-3">
-            <div className="flex justify-between items-start mb-2">
-                <div className="flex-1 pr-2">
-                    <h3 className="font-semibold text-sm mb-1 line-clamp-1">{rota.nome}</h3>
-                    <div className="flex items-center space-x-2 mb-1">
-                        <Badge className={`text-xs ${getStatusColor(rota.status || 'Rascunho')}`}>{rota.status || 'Rascunho'}</Badge>
-                        <Badge className={`text-xs ${getDifficultyColor(rota.dificuldade)}`}>{rota.dificuldade}</Badge>
-                    </div>
-                    <p className="text-xs text-gray-500">Criado em {new Date(rota.criado_em).toLocaleDateString("pt-BR")}</p>
-                </div>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm"><MoreVertical className="w-4 h-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        {/* --- INÍCIO DA CORREÇÃO --- */}
-                        <Link href={`/route-details/${rota.id}`}>
-                            <DropdownMenuItem>
-                                <Eye className="w-4 h-4 mr-2" />
-                                Ver Detalhes
-                            </DropdownMenuItem>
-                        </Link>
-                        {/* --- FIM DA CORREÇÃO --- */}
-                        <DropdownMenuItem>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Duplicar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Excluir
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+      <CardContent className="flex-1 p-3">
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex-1 pr-2">
+            <h3 className="font-semibold text-sm mb-1 line-clamp-1">{rota.nome}</h3>
+            <div className="flex items-center space-x-2 mb-1">
+              <Badge className={`text-xs ${getStatusColor(rota.status || 'Rascunho')}`}>{rota.status || 'Rascunho'}</Badge>
+              <Badge className={`text-xs ${getDifficultyColor(rota.dificuldade)}`}>{rota.dificuldade}</Badge>
             </div>
+            <p className="text-xs text-gray-500">Criado em {new Date(rota.criado_em).toLocaleDateString("pt-BR")}</p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm"><MoreVertical className="w-4 h-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <Link href={`/route-details/${rota.id}`}>
+                <DropdownMenuItem>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Ver Detalhes
+                </DropdownMenuItem>
+              </Link>
+              <Link href={`/publisher/routes/edit/${rota.id}`}>
+                <DropdownMenuItem>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Editar
+                </DropdownMenuItem>
+              </Link>
+              <DropdownMenuItem onClick={() => handleDuplicateRoute(rota)}>
+                <Copy className="w-4 h-4 mr-2" />
+                Duplicar
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-red-600 focus:text-red-700 focus:bg-red-50" onClick={() => handleDeleteRoute(rota.id)}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 mb-2">
-                <div className="flex items-center space-x-1"><Clock className="w-3 h-3" /><span>{rota.duracao || 'N/A'}</span></div>
-                <div className="flex items-center space-x-1"><DollarSign className="w-3 h-3" /><span>R$ {rota.preco || 0}</span></div>
-            </div>
-        </CardContent>
+        <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 mb-2">
+          <div className="flex items-center space-x-1"><Clock className="w-3 h-3" /><span>{rota.duracao || 'N/A'}</span></div>
+          <div className="flex items-center space-x-1"><DollarSign className="w-3 h-3" /><span>R$ {rota.preco || 0}</span></div>
+        </div>
+      </CardContent>
     </Card>
   )
 
@@ -191,7 +273,7 @@ export default function PublisherRoutes() {
           </TabsList>
 
           <TabsContent value="active" className="mt-4">
-            {isLoading ? <p>A carregar...</p> : activeRoutes.length > 0 ? (
+            {isLoading ? <p>Carregando...</p> : activeRoutes.length > 0 ? (
               <div className="space-y-4">
                 {activeRoutes.map((rota) => (<RouteCard key={rota.id} rota={rota} />))}
               </div>
@@ -199,7 +281,7 @@ export default function PublisherRoutes() {
           </TabsContent>
 
           <TabsContent value="drafts" className="mt-4">
-             {isLoading ? <p>A carregar...</p> : draftRoutes.length > 0 ? (
+            {isLoading ? <p>Carregando...</p> : draftRoutes.length > 0 ? (
               <div className="space-y-4">
                 {draftRoutes.map((rota) => (<RouteCard key={rota.id} rota={rota} />))}
               </div>
