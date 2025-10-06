@@ -1,3 +1,4 @@
+// app/contexts/UserContext.tsx
 "use client"
 
 import { createContext, useState, useEffect, useContext, ReactNode } from 'react'
@@ -19,60 +20,77 @@ type UserContextType = {
   isLoading: boolean
 }
 
+// Criamos o Context
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
+// Criamos o Provedor do Contexto
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true) // Começa a carregar por defeito
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // O onAuthStateChange é chamado uma vez no carregamento inicial com a sessão atual,
-    // e depois novamente sempre que o estado de autenticação muda (login/logout).
-    // Isto combina a verificação inicial e o "ouvinte" numa só função.
+    const getSessionAndProfile = async () => {
+      // Pega a sessão ativa
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+      setUser(session?.user ?? null)
+
+      // Se houver uma sessão, busca o perfil
+      if (session?.user) {
+        const { data: profileData, error } = await supabase
+          .from('perfis')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+
+        if (error) {
+          console.error("Erro ao buscar perfil:", error)
+        } else {
+          setProfile(profileData)
+        }
+      }
+      setIsLoading(false)
+    }
+
+    getSessionAndProfile()
+
+    // Escuta por mudanças na autenticação (login/logout)
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        const currentUser = session?.user;
-        setUser(currentUser ?? null);
-        
-        // Se houver um utilizador, busca o seu perfil.
-        // Se a sessão for nula (logout), define o perfil como nulo.
-        if (currentUser) {
-          const { data: profileData, error } = await supabase
+      async (_event, session) => {
+        setSession(session)
+        setUser(session?.user ?? null)
+
+        if (session?.user) {
+          const { data: profileData } = await supabase
             .from('perfis')
             .select('*')
-            .eq('id', currentUser.id)
-            .single();
-
-          if (error) {
-            console.error("Erro ao buscar o perfil do utilizador:", error);
-            setProfile(null); // Garante que o perfil fica nulo em caso de erro
-          } else {
-            setProfile(profileData);
-          }
+            .eq('id', session.user.id)
+            .single()
+          setProfile(profileData)
         } else {
-          setProfile(null);
+          setProfile(null)
         }
-
-        // A primeira vez que isto corre, o carregamento inicial está completo.
-        setIsLoading(false);
       }
-    );
+    )
 
-    // Função de limpeza para se desinscrever do "ouvinte"
     return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []); // O array de dependências vazio [] garante que isto só corre uma vez
+      authListener.subscription.unsubscribe()
+    }
+  }, [])
 
-  const value = { session, user, profile, isLoading };
+  const value = {
+    session,
+    user,
+    profile,
+    isLoading,
+  }
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>
 }
 
-// Hook personalizado para usar o contexto mais facilmente
+// Hook customizado para usar o contexto mais facilmente
 export const useUser = () => {
   const context = useContext(UserContext)
   if (context === undefined) {
