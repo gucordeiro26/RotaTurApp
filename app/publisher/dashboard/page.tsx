@@ -57,6 +57,12 @@ export default function PublisherDashboard() {
       } else {
         setRotas(rotasData || []);
         setReservas(reservasData || []);
+        // Adiciona a atualização dos estados que são usados na renderização
+        setStats({
+          totalRotas: rotasData?.length || 0,
+          totalPlanos: reservasData?.length || 0,
+        });
+        setRotasRecentes(rotasData?.slice(0, 5) || []); // Exibe as 5 rotas mais recentes
       }
 
       setIsLoading(false); // Desativa o estado de loading após a busca

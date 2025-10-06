@@ -209,6 +209,7 @@ export default function CreateRoute() {
 
                 <div className="w-full h-[400px] rounded-md overflow-hidden border">
                   <MapEditor
+                    initialCenter={{ lat: -23.55052, lng: -46.633308 }} // exemplo: centro de São Paulo, ajuste conforme necessário
                     pontoInicio={pontoInicio}
                     pontoFim={pontoFim}
                     pontosInteresse={pontosDeInteresse}
