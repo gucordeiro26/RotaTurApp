@@ -15,6 +15,10 @@ type Rota = {
   nome: string;
 };
 
+type Reserva = {
+  id: number;
+}
+
 type Stats = {
   totalRotas: number;
   totalPlanos: number;
@@ -24,49 +28,42 @@ export default function PublisherDashboard() {
   const { user } = useUser();
   const [rotasRecentes, setRotasRecentes] = useState<Rota[]>([]);
   const [stats, setStats] = useState<Stats>({ totalRotas: 0, totalPlanos: 0 });
+  const [rotas, setRotas] = useState<Rota[]>([])
+  const [reservas, setReservas] = useState<Reserva[]>([])
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!user) return;
+    const fetchData = async () => {
+      // Se não houver utilizador, não fazemos nada. O layout já trata do redirecionamento.
+      if (!user?.id) return
 
-      setIsLoading(true);
+      setIsLoading(true); // Garante que o estado de loading é ativado a cada nova busca
 
       // Busca as rotas do publicador
-      const { data: rotasData, error: rotasError, count: rotasCount } = await supabase
+      const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
-        .select('*', { count: 'exact' })
+        .select('id, nome')
         .eq('publicador_id', user.id);
 
-      if (rotasError) {
-        console.error("Erro ao buscar rotas:", rotasError);
+      // Busca as reservas para as rotas deste publicador
+      // (Esta é uma consulta mais complexa, pode ser ajustada conforme a sua necessidade)
+      const { data: reservasData, error: reservasError } = await supabase
+        .from('reservas')
+        .select('id, rotas!inner(publicador_id)')
+        .eq('rotas.publicador_id', user.id);
+
+      if (rotasError || reservasError) {
+        console.error("Erro ao buscar dados do dashboard:", rotasError || reservasError);
       } else {
-        setRotasRecentes(rotasData?.slice(0, 3) || []);
-        setStats(prev => ({ ...prev, totalRotas: rotasCount || 0 }));
+        setRotas(rotasData || []);
+        setReservas(reservasData || []);
       }
 
-      // Busca os planos feitos para as rotas deste publicador
-      if (rotasData) {
-        const rotasIds = rotasData.map(rota => rota.id);
-        if (rotasIds.length > 0) {
-            const { count: planosCount, error: planosError } = await supabase
-                .from('reservas')
-                .select('*', { count: 'exact', head: true })
-                .in('rota_id', rotasIds);
+      setIsLoading(false); // Desativa o estado de loading após a busca
+    }
 
-            if (planosError) {
-                console.error("Erro ao buscar planos:", planosError);
-            } else {
-                setStats(prev => ({ ...prev, totalPlanos: planosCount || 0 }));
-            }
-        }
-      }
-
-      setIsLoading(false);
-    };
-
-    fetchDashboardData();
-  }, [user]);
+    fetchData()
+  }, [user?.id]) // A dependência no ID do utilizador é robusta e correta
 
   // Cards de estatísticas simplificados
   const statCards = [
@@ -76,11 +73,11 @@ export default function PublisherDashboard() {
 
   if (isLoading) {
     return (
-        <div className="p-4 space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <div className="grid grid-cols-2 gap-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>
-            <Skeleton className="h-48 w-full" />
-        </div>
+      <div className="p-4 space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <div className="grid grid-cols-2 gap-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>
+        <Skeleton className="h-48 w-full" />
+      </div>
     )
   }
 
@@ -142,17 +139,17 @@ export default function PublisherDashboard() {
             <CardTitle className="text-lg">Minhas Rotas Recentes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {rotasRecentes.length > 0 
-                ? rotasRecentes.map((rota) => (
-                    <div key={rota.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <h4 className="font-medium text-sm">{rota.nome}</h4>
-                        <div className="flex space-x-1">
-                          <Link href={`/route-details/${rota.id}`}><Button variant="ghost" size="sm"><Eye className="w-4 h-4" /></Button></Link>
-                          <Button variant="ghost" size="sm"><Edit className="w-4 h-4" /></Button>
-                        </div>
-                    </div>
-                ))
-                : <p className="text-sm text-gray-500 text-center py-4">Ainda não criou nenhuma rota.</p>
+            {rotasRecentes.length > 0
+              ? rotasRecentes.map((rota) => (
+                <div key={rota.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-sm">{rota.nome}</h4>
+                  <div className="flex space-x-1">
+                    <Link href={`/route-details/${rota.id}`}><Button variant="ghost" size="sm"><Eye className="w-4 h-4" /></Button></Link>
+                    <Button variant="ghost" size="sm"><Edit className="w-4 h-4" /></Button>
+                  </div>
+                </div>
+              ))
+              : <p className="text-sm text-gray-500 text-center py-4">Ainda não criou nenhuma rota.</p>
             }
           </CardContent>
         </Card>
