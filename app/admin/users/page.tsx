@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { supabase } from "@/lib/supabase"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,10 +11,79 @@ import { ArrowLeft, Search, Filter, MoreVertical, Shield, User, Crown, Ban, Edit
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
 
+interface UserData {
+  id: string
+  nome_completo: string
+  email: string
+  tipo_perfil: string
+  status: string
+  url_avatar: string | null
+  criado_em: string
+  rotas: {
+    id: number
+  }[]
+}
+
+interface UserStats {
+  total: number
+  active: number
+  pending: number
+}
+
 export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [users, setUsers] = useState<UserData[]>([])
+  const [stats, setStats] = useState<UserStats>({
+    total: 0,
+    active: 0,
+    pending: 0
+  })
+  const [loading, setLoading] = useState(true)
 
-  const users = [
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const { data: userData, error } = await supabase
+          .from('perfis')
+          .select(`
+            *,
+            rotas (
+              id
+            )
+          `)
+          .order('criado_em', { ascending: false })
+
+        if (error) throw error
+
+        setUsers(userData)
+
+        // Calcular estatísticas
+        const statsData = {
+          total: userData.length,
+          active: userData.filter(u => u.status === 'Ativo').length,
+          pending: userData.filter(u => u.status === 'Pendente').length
+        }
+        setStats(statsData)
+      } catch (error) {
+        console.error('Erro ao buscar usuários:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-16 h-16 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div>
+      </div>
+    )
+  }
+
+  // Mock data for reference
+  const mockUsers = [
     {
       id: 1,
       name: "John Smith",
@@ -56,35 +126,46 @@ export default function UserManagement() {
     },
   ]
 
-  const getRoleIcon = (role) => {
+  const getRoleIcon = (role: string) => {
     switch (role) {
-      case "Administrator":
+      case "admin":
         return <Crown className="w-4 h-4" />
-      case "Publisher":
+      case "publisher":
         return <Shield className="w-4 h-4" />
       default:
         return <User className="w-4 h-4" />
     }
   }
 
-  const getRoleBadgeColor = (role) => {
+  const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case "Administrator":
+      case "admin":
         return "bg-purple-100 text-purple-800"
-      case "Publisher":
+      case "publisher":
         return "bg-blue-100 text-blue-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
   }
 
-  const getStatusBadgeColor = (status) => {
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "Administrador"
+      case "publisher":
+        return "Publicador"
+      default:
+        return "Usuário"
+    }
+  }
+
+  const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case "Active":
+      case "Ativo":
         return "bg-green-100 text-green-800"
-      case "Pending":
+      case "Pendente":
         return "bg-yellow-100 text-yellow-800"
-      case "Suspended":
+      case "Suspenso":
         return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
@@ -126,19 +207,19 @@ export default function UserManagement() {
         <div className="grid grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-blue-600">156</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
               <p className="text-sm text-gray-600">Total de Usuários</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-green-600">142</p>
+              <p className="text-2xl font-bold text-green-600">{stats.active}</p>
               <p className="text-sm text-gray-600">Ativos</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-orange-600">8</p>
+              <p className="text-2xl font-bold text-orange-600">{stats.pending}</p>
               <p className="text-sm text-gray-600">Pendentes</p>
             </CardContent>
           </Card>
@@ -146,45 +227,38 @@ export default function UserManagement() {
 
         {/* User List */}
         <div className="space-y-3">
-          {users.map((user) => (
+          {users.filter(user => 
+            user.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.email.toLowerCase().includes(searchTerm.toLowerCase())
+          ).map((user) => (
             <Card key={user.id}>
               <CardContent className="p-4">
                 <div className="flex items-center space-x-3">
                   <Avatar>
-                    <AvatarImage src={user.avatar || "/placeholder.svg"} />
+                    <AvatarImage src={user.url_avatar || "/placeholder-user.jpg"} />
                     <AvatarFallback>
-                      {user.name
+                      {user.nome_completo
                         .split(" ")
-                        .map((n) => n[0])
+                        .map((n: string) => n[0])
                         .join("")}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                      <h3 className="font-medium text-sm truncate">{user.name}</h3>
-                      {getRoleIcon(user.role)}
+                      <h3 className="font-medium text-sm truncate">{user.nome_completo}</h3>
+                      {getRoleIcon(user.tipo_perfil)}
                     </div>
                     <p className="text-xs text-gray-600 truncate">{user.email}</p>
                     <div className="flex items-center space-x-2 mt-1">
-                      <Badge className={`text-xs ${getRoleBadgeColor(user.role)}`}>
-                        {user.role === "Administrator"
-                          ? "Administrador"
-                          : user.role === "Publisher"
-                            ? "Publicador"
-                            : "Usuário"}
+                      <Badge className={`text-xs ${getRoleBadgeColor(user.tipo_perfil)}`}>
+                        {getRoleLabel(user.tipo_perfil)}
                       </Badge>
                       <Badge className={`text-xs ${getStatusBadgeColor(user.status)}`}>
-                        {user.status === "Active"
-                          ? "Ativos"
-                          : user.status === "Pending"
-                            ? "Pendentes"
-                            : user.status === "Suspended"
-                              ? "Suspenso"
-                              : user.status}
+                        {user.status}
                       </Badge>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      {user.routes} rotas • Entrou em {user.joinDate}
+                      {user.rotas?.length || 0} rotas • Entrou em {new Date(user.criado_em).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
                   <DropdownMenu>
