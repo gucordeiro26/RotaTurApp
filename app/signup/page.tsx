@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,14 +12,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin } from "lucide-react"
 
 export default function SignupPage() {
+  const router = useRouter()
   const [nomeCompleto, setNomeCompleto] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [tipoPerfil, setTipoPerfil] = useState("usuario") // Novo estado para o tipo de perfil
+  const [tipoPerfil, setTipoPerfil] = useState("usuario")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   const handleSignUp = async () => {
     if (password !== confirmPassword) {
@@ -43,10 +46,15 @@ export default function SignupPage() {
 
     if (error) {
       setError(error.message)
+      setIsLoading(false)
     } else {
-      setSuccess("Conta criada com sucesso! Você já pode fazer o login.")
+      setSuccess("Conta criada com sucesso! Redirecionando para o login...")
+      setIsRedirecting(true)
+      // Aguarda 2 segundos antes de redirecionar
+      setTimeout(() => {
+        router.push('/')
+      }, 2000)
     }
-    setIsLoading(false)
   }
 
   return (
@@ -59,9 +67,11 @@ export default function SignupPage() {
           {success ? (
             <div className="text-center p-4 bg-green-100 text-green-800 rounded-md">
               <p>{success}</p>
-              <Link href="/" className="text-blue-600 hover:underline mt-4 block">
-                Voltar para o Login
-              </Link>
+              {isRedirecting && (
+                <div className="mt-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-800 mx-auto"></div>
+                </div>
+              )}
             </div>
           ) : (
             <>
