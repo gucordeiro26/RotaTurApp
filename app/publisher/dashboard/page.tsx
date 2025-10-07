@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { RouteGuard } from "@/components/RouteGuard"
 import { useUser } from "@/app/contexts/UserContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -90,8 +91,9 @@ export default function PublisherDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <RouteGuard allowedRoles={["publicador"]}>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -182,6 +184,7 @@ export default function PublisherDashboard() {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </RouteGuard>
   )
 }

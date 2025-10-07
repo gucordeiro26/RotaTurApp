@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { RouteGuard } from "@/components/RouteGuard"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Users, Route, Shield, Plus, Edit, Trash2, BarChart3, Settings, LogOut, Bookmark } from "lucide-react"
@@ -100,8 +101,9 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <RouteGuard allowedRoles={["admin"]}>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -238,5 +240,6 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
+    </RouteGuard>
   )
 }

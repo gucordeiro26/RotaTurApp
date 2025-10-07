@@ -15,12 +15,7 @@ export default function LoginForm() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isClient, setIsClient] = useState(false)
   const router = useRouter()
-
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
 
   const handleLogin = async () => {
     setIsLoading(true)
@@ -37,25 +32,25 @@ export default function LoginForm() {
       return
     }
 
-    const { data: profileData, error: profileError } = await supabase
-      .from('perfis')
-      .select('tipo_perfil')
-      .eq('id', authData.user.id)
-      .single()
+    try {
+      const { data: profileData } = await supabase
+        .from('perfis')
+        .select('tipo_perfil')
+        .eq('id', authData.user.id)
+        .single()
 
-    if (profileError || !profileData) {
-      setError("Não foi possível encontrar o perfil do usuário.")
+      const userRole = profileData?.tipo_perfil
+
+      if (userRole === "admin") {
+        router.push("/admin/dashboard")
+      } else if (userRole === "publicador") {
+        router.push("/publisher/dashboard")
+      } else {
+        router.push("/user/dashboard")
+      }
+    } catch (err) {
+      setError("Ocorreu um erro ao verificar o perfil.")
       setIsLoading(false)
-      return
-    }
-
-    const userRole = profileData.tipo_perfil
-    if (userRole === "admin") {
-      router.push("/admin/dashboard")
-    } else if (userRole === "publicador") {
-      router.push("/publisher/dashboard")
-    } else {
-      router.push("/user/dashboard")
     }
   }
 
@@ -96,9 +91,9 @@ export default function LoginForm() {
           <Button
             onClick={handleLogin}
             className="w-full bg-blue-600 hover:bg-blue-700"
-            disabled={!isClient || isLoading || !email || !password}
+            disabled={isLoading || !email || !password}
           >
-            {!isClient ? "Carregando..." : isLoading ? "Entrando..." : "Entrar"}
+            {isLoading ? "Entrando..." : "Entrar"}
           </Button>
 
           <div className="text-center text-sm text-gray-600">
