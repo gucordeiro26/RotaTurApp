@@ -1,6 +1,8 @@
 "use client"
 
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css'
+import { MapContainer, TileLayer, Marker, Polyline, useMap, Popup } from 'react-leaflet'
 import L, { Icon, LatLngExpression } from 'leaflet'
 import { useEffect, useState } from 'react'
 import { Button } from './ui/button'

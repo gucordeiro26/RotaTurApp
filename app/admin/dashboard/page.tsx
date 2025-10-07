@@ -5,20 +5,88 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Users, Route, Shield, Plus, Edit, Trash2, MessageSquare, BarChart3, Settings } from "lucide-react"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
+import { useEffect, useState } from "react"
+
+interface Route {
+  id: number
+  name: string
+  publisher: string
+  status: string
+  participants: number
+}
 
 export default function AdminDashboard() {
-  const stats = [
-    { title: "Total de Rotas", value: "24", icon: Route, color: "bg-blue-500" },
-    { title: "Usuários Ativos", value: "156", icon: Users, color: "bg-green-500" },
-    { title: "Aprovações Pendentes", value: "8", icon: Shield, color: "bg-orange-500" },
-    { title: "Mensagens", value: "12", icon: MessageSquare, color: "bg-purple-500" },
-  ]
+  const [stats, setStats] = useState([
+    { title: "Total de Rotas", value: "0", icon: Route, color: "bg-blue-500" },
+    { title: "Usuários Ativos", value: "0", icon: Users, color: "bg-green-500" },
+    { title: "Aprovações Pendentes", value: "0", icon: Shield, color: "bg-orange-500" },
+    { title: "Mensagens", value: "0", icon: MessageSquare, color: "bg-purple-500" },
+  ])
+  const [recentRoutes, setRecentRoutes] = useState<Route[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const recentRoutes = [
-    { id: 1, name: "Caminhada pelo Centro Histórico", publisher: "Tours da Cidade", status: "Ativo", participants: 23 },
-    { id: 2, name: "Aventura na Trilha da Montanha", publisher: "Aventura Cia.", status: "Pendente", participants: 15 },
-    { id: 3, name: "Rota Cênica Costeira", publisher: "Vista do Oceano", status: "Ativo", participants: 31 },
-  ]
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true)
+      try {
+        // Fetch stats
+        const { count: routesCount } = await supabase.from("routes").select("*", { count: "exact", head: true })
+        const { count: usersCount } = await supabase.from("users").select("*", { count: "exact", head: true })
+        const { count: pendingRoutesCount } = await supabase
+          .from("routes")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "Pendente")
+        // Assuming you have a 'messages' table
+        const { count: messagesCount } = await supabase.from("messages").select("*", { count: "exact", head: true })
+
+        setStats([
+          { title: "Total de Rotas", value: String(routesCount ?? 0), icon: Route, color: "bg-blue-500" },
+          { title: "Usuários Ativos", value: String(usersCount ?? 0), icon: Users, color: "bg-green-500" },
+          {
+            title: "Aprovações Pendentes",
+            value: String(pendingRoutesCount ?? 0),
+            icon: Shield,
+            color: "bg-orange-500",
+          },
+          { title: "Mensagens", value: String(messagesCount ?? 0), icon: MessageSquare, color: "bg-purple-500" },
+        ])
+
+        // Fetch recent routes
+        const { data: recentRoutesData, error } = await supabase
+          .from("routes")
+          .select("id, name, publisher:publisher_id(name), status, participants:bookings(count)")
+          .order("created_at", { ascending: false })
+          .limit(3)
+
+        if (error) throw error
+
+        const formattedRoutes = recentRoutesData.map((route: any) => ({
+          id: route.id,
+          name: route.name,
+          publisher: route.publisher.name,
+          status: route.status,
+          participants: route.participants[0]?.count || 0,
+        }))
+
+        setRecentRoutes(formattedRoutes)
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-16 h-16 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -99,26 +167,32 @@ export default function AdminDashboard() {
             <CardDescription>Últimas rotas turísticas da plataforma</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentRoutes.map((route) => (
-              <div key={route.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <h4 className="font-medium text-sm">{route.name}</h4>
-                  <p className="text-xs text-gray-600">por {route.publisher}</p>
-                  <p className="text-xs text-gray-500">{route.participants} participantes</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant={route.status === "Ativo" ? "default" : "secondary"}>{route.status}</Badge>
-                  <div className="flex space-x-1">
-                    <Button variant="ghost" size="sm">
-                      <Edit className="w-3 h-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
+            {recentRoutes.length > 0 ? (
+              recentRoutes.map((route) => (
+                <div key={route.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm">{route.name}</h4>
+                    <p className="text-xs text-gray-600">por {route.publisher}</p>
+                    <p className="text-xs text-gray-500">{route.participants} participantes</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant={route.status === "Ativo" ? "default" : "secondary"}>{route.status}</Badge>
+                    <div className="flex space-x-1">
+                      <Link href={`/admin/routes/edit/${route.id}`}>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                      </Link>
+                      <Button variant="ghost" size="sm" onClick={() => console.log("Delete route", route.id)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">Nenhuma rota recente encontrada.</p>
+            )}
           </CardContent>
         </Card>
       </div>
