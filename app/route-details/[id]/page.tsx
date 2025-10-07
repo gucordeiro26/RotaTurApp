@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ArrowLeft, MapPin, Clock, Users, DollarSign, Share, Heart, MessageSquare, Navigation, Pin } from "lucide-react"
+import { ArrowLeft, MapPin, Clock, Users, DollarSign, Share, MessageSquare, Navigation, Pin } from "lucide-react"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { RotaParaMapa } from "@/components/Map"
@@ -81,7 +81,7 @@ export default function RouteDetails() {
       <header className="bg-white shadow-sm border-b flex-shrink-0">
         <div className="px-4 py-3 flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => router.back()}><ArrowLeft className="w-4 h-4" /></Button>
-          <div className="flex space-x-2"><Button variant="ghost" size="sm"><Share className="w-4 h-4" /></Button><Button variant="ghost" size="sm"><Heart className="w-4 h-4 text-gray-500" /></Button></div>
+          <div className="flex space-x-2"><Button variant="ghost" size="sm"><Share className="w-4 h-4" /></Button></div>
         </div>
       </header>
 

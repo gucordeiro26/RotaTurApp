@@ -28,48 +28,51 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    const getSessionAndProfile = async () => {
-      // Pega a sessão ativa
+    setIsLoading(true)
+    
+    // Verifica se há uma sessão ativa ao carregar
+    const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-
-      // Se houver uma sessão, busca o perfil
-      if (session?.user) {
-        const { data: profileData, error } = await supabase
+      
+      if (session) {
+        setSession(session)
+        setUser(session.user)
+        
+        const { data: profileData } = await supabase
           .from('perfis')
           .select('*')
           .eq('id', session.user.id)
           .single()
-
-        if (error) {
-          console.error("Erro ao buscar perfil:", error)
-        } else {
-          setProfile(profileData)
-        }
+        
+        setProfile(profileData)
       }
+      
       setIsLoading(false)
     }
+    
+    checkSession()
 
-    getSessionAndProfile()
-
-    // Escuta por mudanças na autenticação (login/logout)
+    // Configura o listener para mudanças de autenticação
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
+      async (event, session) => {
+        if (event === 'SIGNED_IN') {
+          setSession(session)
+          setUser(session?.user ?? null)
 
-        if (session?.user) {
-          const { data: profileData } = await supabase
-            .from('perfis')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          setProfile(profileData)
-        } else {
+          if (session?.user) {
+            const { data: profileData } = await supabase
+              .from('perfis')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+            setProfile(profileData)
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null)
+          setUser(null)
           setProfile(null)
         }
       }

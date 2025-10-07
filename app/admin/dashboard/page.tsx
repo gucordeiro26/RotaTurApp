@@ -3,27 +3,31 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Users, Route, Shield, Plus, Edit, Trash2, MessageSquare, BarChart3, Settings } from "lucide-react"
+import { MapPin, Users, Route, Shield, Plus, Edit, Trash2, BarChart3, Settings, LogOut, Bookmark } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useEffect, useState } from "react"
 
-interface Route {
+interface RouteType {
   id: number
-  name: string
-  publisher: string
+  nome: string
+  publisher: {
+    nome_completo: string
+  }
   status: string
-  participants: number
+  reservas: [{ count: number }]
 }
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState([
     { title: "Total de Rotas", value: "0", icon: Route, color: "bg-blue-500" },
     { title: "Usuários Ativos", value: "0", icon: Users, color: "bg-green-500" },
     { title: "Aprovações Pendentes", value: "0", icon: Shield, color: "bg-orange-500" },
-    { title: "Mensagens", value: "0", icon: MessageSquare, color: "bg-purple-500" },
+    { title: "Reservas", value: "0", icon: Bookmark, color: "bg-purple-500" },
   ])
-  const [recentRoutes, setRecentRoutes] = useState<Route[]>([])
+  const [recentRoutes, setRecentRoutes] = useState<RouteType[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -31,17 +35,16 @@ export default function AdminDashboard() {
       setLoading(true)
       try {
         // Fetch stats
-        const { count: routesCount } = await supabase.from("routes").select("*", { count: "exact", head: true })
-        const { count: usersCount } = await supabase.from("users").select("*", { count: "exact", head: true })
+        const { count: rotasCount } = await supabase.from("rotas").select("*", { count: "exact", head: true })
+        const { count: usersCount } = await supabase.from("perfis").select("*", { count: "exact", head: true })
         const { count: pendingRoutesCount } = await supabase
-          .from("routes")
+          .from("rotas")
           .select("*", { count: "exact", head: true })
-          .eq("status", "Pendente")
-        // Assuming you have a 'messages' table
-        const { count: messagesCount } = await supabase.from("messages").select("*", { count: "exact", head: true })
+          .eq("status", "Rascunho")
+        const { count: reservasCount } = await supabase.from("reservas").select("*", { count: "exact", head: true })
 
         setStats([
-          { title: "Total de Rotas", value: String(routesCount ?? 0), icon: Route, color: "bg-blue-500" },
+          { title: "Total de Rotas", value: String(rotasCount ?? 0), icon: Route, color: "bg-blue-500" },
           { title: "Usuários Ativos", value: String(usersCount ?? 0), icon: Users, color: "bg-green-500" },
           {
             title: "Aprovações Pendentes",
@@ -49,24 +52,32 @@ export default function AdminDashboard() {
             icon: Shield,
             color: "bg-orange-500",
           },
-          { title: "Mensagens", value: String(messagesCount ?? 0), icon: MessageSquare, color: "bg-purple-500" },
+          { title: "Reservas", value: String(reservasCount ?? 0), icon: Bookmark, color: "bg-purple-500" },
         ])
 
         // Fetch recent routes
         const { data: recentRoutesData, error } = await supabase
-          .from("routes")
-          .select("id, name, publisher:publisher_id(name), status, participants:bookings(count)")
-          .order("created_at", { ascending: false })
+          .from("rotas")
+          .select(`
+            id,
+            nome,
+            publisher:publicador_id (
+              nome_completo
+            ),
+            status,
+            reservas (count)
+          `)
+          .order("criado_em", { ascending: false })
           .limit(3)
 
         if (error) throw error
 
-        const formattedRoutes = recentRoutesData.map((route: any) => ({
+        const formattedRoutes = recentRoutesData.map((route: any): RouteType => ({
           id: route.id,
-          name: route.name,
-          publisher: route.publisher.name,
+          nome: route.nome,
+          publisher: route.publisher,
           status: route.status,
-          participants: route.participants[0]?.count || 0,
+          reservas: route.reservas
         }))
 
         setRecentRoutes(formattedRoutes)
@@ -107,15 +118,15 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 pb-20">
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {stats.map((stat, index) => (
             <Card key={index}>
               <CardContent className="p-4">
                 <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 ${stat.color} rounded-lg flex items-center justify-center`}>
-                    <stat.icon className="w-5 h-5 text-white" />
+                  <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
+                    <stat.icon className="w-6 h-6 text-white" />
                   </div>
                   <div>
                     <p className="text-2xl font-bold">{stat.value}</p>
@@ -132,31 +143,33 @@ export default function AdminDashboard() {
           <CardHeader>
             <CardTitle className="text-lg">Ações Rápidas</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
-            <Link href="/admin/routes/create">
-              <Button className="w-full h-16 flex flex-col items-center justify-center space-y-1">
-                <Plus className="w-5 h-5" />
-                <span className="text-sm">Criar Rota</span>
-              </Button>
-            </Link>
-            <Link href="/admin/users">
-              <Button variant="outline" className="w-full h-16 flex flex-col items-center justify-center space-y-1">
-                <Users className="w-5 h-5" />
-                <span className="text-sm">Gerenciar Usuários</span>
-              </Button>
-            </Link>
-            <Link href="/admin/routes">
-              <Button variant="outline" className="w-full h-16 flex flex-col items-center justify-center space-y-1">
-                <Route className="w-5 h-5" />
-                <span className="text-sm">Todas as Rotas</span>
-              </Button>
-            </Link>
-            <Link href="/admin/analytics">
-              <Button variant="outline" className="w-full h-16 flex flex-col items-center justify-center space-y-1">
-                <BarChart3 className="w-5 h-5" />
-                <span className="text-sm">Análises</span>
-              </Button>
-            </Link>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Link href="/admin/routes/create" className="w-full">
+                <Button className="w-full h-16 flex flex-col items-center justify-center space-y-1">
+                  <Plus className="w-5 h-5" />
+                  <span className="text-sm">Criar Rota</span>
+                </Button>
+              </Link>
+              <Link href="/admin/users" className="w-full">
+                <Button variant="outline" className="w-full h-16 flex flex-col items-center justify-center space-y-1">
+                  <Users className="w-5 h-5" />
+                  <span className="text-sm">Gerenciar Usuários</span>
+                </Button>
+              </Link>
+              <Link href="/admin/routes" className="w-full">
+                <Button variant="outline" className="w-full h-16 flex flex-col items-center justify-center space-y-1">
+                  <Route className="w-5 h-5" />
+                  <span className="text-sm">Todas as Rotas</span>
+                </Button>
+              </Link>
+              <Link href="/admin/analytics" className="w-full">
+                <Button variant="outline" className="w-full h-16 flex flex-col items-center justify-center space-y-1">
+                  <BarChart3 className="w-5 h-5" />
+                  <span className="text-sm">Análises</span>
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
 
@@ -169,22 +182,22 @@ export default function AdminDashboard() {
           <CardContent className="space-y-3">
             {recentRoutes.length > 0 ? (
               recentRoutes.map((route) => (
-                <div key={route.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={route.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-gray-50 rounded-lg space-y-2 sm:space-y-0">
                   <div className="flex-1">
-                    <h4 className="font-medium text-sm">{route.name}</h4>
-                    <p className="text-xs text-gray-600">por {route.publisher}</p>
-                    <p className="text-xs text-gray-500">{route.participants} participantes</p>
+                    <h4 className="font-medium text-sm">{route.nome}</h4>
+                    <p className="text-xs text-gray-600">por {route.publisher.nome_completo}</p>
+                    <p className="text-xs text-gray-500">{route.reservas[0]?.count || 0} reservas</p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={route.status === "Ativo" ? "default" : "secondary"}>{route.status}</Badge>
-                    <div className="flex space-x-1">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+                    <Badge className="w-full sm:w-auto text-center" variant={route.status === "Ativo" ? "default" : "secondary"}>{route.status}</Badge>
+                    <div className="flex space-x-1 w-full sm:w-auto justify-end">
                       <Link href={`/admin/routes/edit/${route.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="w-3 h-3" />
+                        <Button variant="ghost" size="sm" className="hover:text-green-600">
+                          <Edit className="w-4 h-4" />
                         </Button>
                       </Link>
-                      <Button variant="ghost" size="sm" onClick={() => console.log("Delete route", route.id)}>
-                        <Trash2 className="w-3 h-3" />
+                      <Button variant="ghost" size="sm" className="hover:text-red-600" onClick={() => console.log("Delete route", route.id)}>
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
@@ -200,22 +213,28 @@ export default function AdminDashboard() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
         <div className="grid grid-cols-4 py-2">
-          <Link href="/admin/dashboard" className="flex flex-col items-center py-2 text-blue-600">
+          <Link href="/admin/dashboard" className="flex flex-col items-center py-2 text-green-600">
             <BarChart3 className="w-5 h-5" />
             <span className="text-xs mt-1">Painel</span>
           </Link>
-          <Link href="/admin/routes" className="flex flex-col items-center py-2 text-gray-600">
+          <Link href="/admin/routes" className="flex flex-col items-center py-2 text-gray-600 hover:text-green-600">
             <Route className="w-5 h-5" />
             <span className="text-xs mt-1">Rotas</span>
           </Link>
-          <Link href="/admin/users" className="flex flex-col items-center py-2 text-gray-600">
+          <Link href="/admin/users" className="flex flex-col items-center py-2 text-gray-600 hover:text-green-600">
             <Users className="w-5 h-5" />
             <span className="text-xs mt-1">Usuários</span>
           </Link>
-          <Link href="/admin/messages" className="flex flex-col items-center py-2 text-gray-600">
-            <MessageSquare className="w-5 h-5" />
-            <span className="text-xs mt-1">Mensagens</span>
-          </Link>
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut()
+              router.push('/')
+            }} 
+            className="flex flex-col items-center py-2 text-red-600 hover:text-red-700"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="text-xs mt-1">Sair</span>
+          </button>
         </div>
       </div>
     </div>

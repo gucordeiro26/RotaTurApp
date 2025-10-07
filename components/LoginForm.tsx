@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,12 @@ export default function LoginForm() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isClient, setIsClient] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const handleLogin = async () => {
     setIsLoading(true)
@@ -91,9 +96,9 @@ export default function LoginForm() {
           <Button
             onClick={handleLogin}
             className="w-full bg-blue-600 hover:bg-blue-700"
-            disabled={isLoading || !email || !password}
+            disabled={!isClient || isLoading || !email || !password}
           >
-            {isLoading ? "Entrando..." : "Entrar"}
+            {!isClient ? "Carregando..." : isLoading ? "Entrando..." : "Entrar"}
           </Button>
 
           <div className="text-center text-sm text-gray-600">
