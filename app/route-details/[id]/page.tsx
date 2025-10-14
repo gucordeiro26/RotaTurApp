@@ -147,7 +147,7 @@ export default function RouteDetails() {
       <footer className="bg-white border-t p-4 flex-shrink-0">
         <div className="flex space-x-3">
           <Button variant="outline" className="flex-1">Mensagem</Button>
-          <Link href={`/user/plan/${rota.id}`} className="flex-1"><Button className="w-full bg-blue-600 hover:bg-blue-700">Planear Rota</Button></Link>
+          <Link href={`/user/plan/${rota.id}`} className="flex-1"><Button className="w-full bg-blue-600 hover:bg-blue-700">Planejar Rota</Button></Link>
         </div>
       </footer>
     </div>

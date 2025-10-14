@@ -4,175 +4,163 @@ import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/app/contexts/UserContext"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  Users,
-  MessageSquare,
-  CheckCircle,
-  XCircle,
-  TrendingUp,
-  MapPin,
-  Route as RouteIcon, // Renomeado para evitar conflito de nome
-} from "lucide-react"
-import Link from "next/link"
+import { Check, X, Clock, Calendar, User, AlertCircle } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
-// --- INÍCIO DA CORREÇÃO ---
-type PerfilDoUsuario = {
-  nome_completo: string
-  url_avatar: string | null
+// Tipos para estruturar os dados que vêm da base de dados
+type Plan = {
+  id: number;
+  data_reserva: string;
+  participantes: number;
+  status: 'pendente' | 'confirmado' | 'cancelado';
+  rotas: {
+    nome: string;
+  } | null;
+  perfis: {
+    nome_completo: string | null;
+    url_avatar: string | null;
+  } | null;
 }
 
-type RotaDoPlano = {
-  nome: string
-}
-
-type PlanoRecebido = {
-  id: number
-  data_reserva: string
-  participantes: number
-  status: string
-  // Os dados aninhados agora são corretamente tipados como arrays
-  perfis: PerfilDoUsuario[] | null
-  rotas: RotaDoPlano[] | null
-}
-// --- FIM DA CORREÇÃO ---
-
-
-export default function PublisherPlans() {
-  const { user } = useUser()
-  const [planos, setPlanos] = useState<PlanoRecebido[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export default function PublisherPlansPage() {
+  const { user } = useUser();
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchReceivedPlans = async () => {
-      if (!user) return
-      setIsLoading(true)
+    const fetchPlans = async () => {
+      if (!user?.id) return;
 
-      const { data: rotasDoPublicador, error: rotasError } = await supabase
-        .from('rotas')
-        .select('id')
-        .eq('publicador_id', user.id)
-      
-      if (rotasError || !rotasDoPublicador) {
-        console.error("Erro ao buscar rotas do publicador:", rotasError)
-        setIsLoading(false)
-        return
-      }
+      setIsLoading(true);
 
-      const rotasIds = rotasDoPublicador.map(r => r.id)
-
-      if (rotasIds.length === 0) {
-          setIsLoading(false)
-          return
-      }
-
-      const { data: planosData, error: planosError } = await supabase
+      // Consulta que busca os 'plans' e junta os dados das tabelas 'rotas' e 'perfis'
+      const { data, error } = await supabase
         .from('reservas')
         .select(`
-          id, data_reserva, participantes, status,
-          perfis ( nome_completo, url_avatar ),
-          rotas ( nome )
-        `)
-        .in('rota_id', rotasIds)
-        .order('criado_em', { ascending: false })
+                    id,
+                    data_reserva,
+                    participantes,
+                    status,
+                    rotas!inner ( nome ),
+                    perfis!inner ( nome_completo, url_avatar )
+                `)
+        .in('rota_id', (await supabase.from('rotas').select('id').eq('publicador_id', user.id)).data?.map(r => r.id) || [])
+        .order('data_reserva', { ascending: true });
 
-      if (planosError) {
-        console.error("Erro ao buscar planos recebidos:", planosError)
-      } else {
-        // Agora o 'as any' é seguro porque a estrutura de dados é mais complexa
-        setPlanos(planosData as any[] || [])
+      if (error) {
+        console.error("Erro ao buscar os planos:", error);
+        setError("Não foi possível carregar as reservas. Tente novamente mais tarde.");
+      } else if (data) {
+        const formattedData = data.map(plan => ({
+          ...plan,
+          rotas: Array.isArray(plan.rotas) ? plan.rotas[0] || null : plan.rotas,
+          perfis: Array.isArray(plan.perfis) ? plan.perfis[0] || null : plan.perfis,
+        }));
+        setPlans(formattedData as Plan[]);
       }
+      setIsLoading(false);
+    };
 
-      setIsLoading(false)
+    fetchPlans();
+  }, [user?.id]);
+
+  // Função para atualizar o status de um plano
+  const handleUpdateStatus = async (planId: number, newStatus: 'confirmado' | 'cancelado') => {
+    // Encontra o plano no estado local para atualizar a UI otimisticamente
+    const originalPlans = plans;
+    const updatedPlans = plans.map(p => p.id === planId ? { ...p, status: newStatus } : p);
+    setPlans(updatedPlans);
+
+    const { error } = await supabase
+      .from('reservas')
+      .update({ status: newStatus })
+      .eq('id', planId);
+
+    if (error) {
+      alert(`Erro ao atualizar o status: ${error.message}`);
+      setPlans(originalPlans); // Reverte a alteração na UI se houver erro
     }
+  };
 
-    fetchReceivedPlans()
-  }, [user])
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case 'confirmado': return 'default';
+      case 'pendente': return 'secondary';
+      case 'cancelado': return 'destructive';
+      default: return 'outline';
+    }
+  }
 
-  const handleUpdateStatus = async (planoId: number, newStatus: 'confirmado' | 'recusado') => {
-    alert(`A funcionalidade de ${newStatus} o plano #${planoId} será implementada a seguir.`);
+  if (isLoading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Card><CardContent className="p-4"><Skeleton className="h-12 w-full" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-12 w-full" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-12 w-full" /></CardContent></Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-8 text-center text-red-600 flex flex-col items-center gap-4"><AlertCircle size={48} /><span>{error}</span></div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="px-4 py-3 flex items-center space-x-3">
-          <Link href="/publisher/dashboard">
-            <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /></Button>
-          </Link>
-          <h1 className="text-xl font-semibold">Planos Recebidos</h1>
-        </div>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <h1 className="text-2xl font-bold mb-6">Gerir Reservas (Plans)</h1>
 
-      <div className="p-4 space-y-4 pb-24">
-        {isLoading ? (
-          <p>A carregar planos...</p>
-        ) : planos.length > 0 ? (
-          planos.map(plano => (
-            <Card key={plano.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start space-x-3">
+      {plans.length === 0 ? (
+        <Card className="text-center p-8">
+          <CardHeader>
+            <CardTitle>Nenhuma reserva encontrada</CardTitle>
+            <CardDescription>Quando os utilizadores se inscreverem nas suas rotas, as reservas aparecerão aqui.</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {plans.map((plan) => (
+            <Card key={plan.id}>
+              <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4 flex-1">
                   <Avatar>
-                    {/* --- CORREÇÃO AQUI: Aceder ao primeiro item do array --- */}
-                    <AvatarImage src={plano.perfis?.[0]?.url_avatar || "/placeholder.svg"} />
-                    <AvatarFallback>{plano.perfis?.[0]?.nome_completo?.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={plan.perfis?.url_avatar || undefined} />
+                    <AvatarFallback>{plan.perfis?.nome_completo?.charAt(0) || 'U'}</AvatarFallback>
                   </Avatar>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-semibold text-sm">{plano.perfis?.[0]?.nome_completo}</h3>
-                        <p className="text-xs text-gray-600">{plano.rotas?.[0]?.nome}</p>
-                      </div>
-                      <Badge variant={plano.status === 'confirmado' ? 'default' : 'secondary'}>{plano.status}</Badge>
+                  <div className="grid gap-1 text-sm">
+                    <p className="font-semibold">{plan.perfis?.nome_completo || "Utilizador anónimo"}</p>
+                    <p className="text-muted-foreground font-medium">{plan.rotas?.nome || "Rota desconhecida"}</p>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(plan.data_reserva).toLocaleDateString('pt-BR')}</span>
+                      <span className="flex items-center gap-1"><User size={14} /> {plan.participantes} participante(s)</span>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-4">
-                      <div className="flex items-center space-x-1"><Calendar className="w-3 h-3" /><span>{new Date(plano.data_reserva).toLocaleDateString("pt-BR")}</span></div>
-                      <div className="flex items-center space-x-1"><Users className="w-3 h-3" /><span>{plano.participantes} pessoa(s)</span></div>
-                    </div>
-
-                    {plano.status === 'pendente' && (
-                      <div className="flex space-x-2">
-                        <Button size="sm" className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700" onClick={() => handleUpdateStatus(plano.id, 'confirmado')}>
-                          <CheckCircle className="w-3 h-3 mr-1" /> Confirmar
-                        </Button>
-                        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs text-red-600" onClick={() => handleUpdateStatus(plano.id, 'recusado')}>
-                          <XCircle className="w-3 h-3 mr-1" /> Recusar
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8"><MessageSquare className="w-3 h-3" /></Button>
-                      </div>
-                    )}
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Badge variant={getStatusVariant(plan.status)} className="capitalize w-24 justify-center hidden sm:flex">
+                    {plan.status}
+                  </Badge>
+                  {plan.status === 'pendente' && (
+                    <>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => handleUpdateStatus(plan.id, 'cancelado')}>
+                        <X className="w-4 h-4 mr-2" /> Cancelar
+                      </Button>
+                      <Button size="sm" className="flex-1" onClick={() => handleUpdateStatus(plan.id, 'confirmado')}>
+                        <Check className="w-4 h-4 mr-2" /> Confirmar
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          ))
-        ) : (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Calendar className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="font-medium text-gray-900 mb-2">Nenhuma solicitação de plano</h3>
-              <p className="text-sm text-gray-600">Quando os usuários planearem uma das suas rotas, as solicitações aparecerão aqui.</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
-        <div className="grid grid-cols-4 py-2">
-            <Link href="/publisher/dashboard" className="flex flex-col items-center py-2 text-gray-600"><TrendingUp className="w-5 h-5" /><span className="text-xs mt-1">Painel</span></Link>
-            <Link href="/publisher/routes" className="flex flex-col items-center py-2 text-gray-600"><MapPin className="w-5 h-5" /><span className="text-xs mt-1">Minhas Rotas</span></Link>
-            <Link href="/publisher/plans" className="flex flex-col items-center py-2 text-green-600"><Calendar className="w-5 h-5" /><span className="text-xs mt-1">Planos</span></Link>
-            <Link href="/publisher/messages" className="flex flex-col items-center py-2 text-gray-600"><MessageSquare className="w-5 h-5" /><span className="text-xs mt-1">Mensagens</span></Link>
+          ))}
         </div>
-      </div>
+      )}
     </div>
-  )
+  );
 }
