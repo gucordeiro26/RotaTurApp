@@ -1,155 +1,184 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { useParams, useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ArrowLeft, MapPin, Clock, Users, DollarSign, Share, MessageSquare, Navigation, Pin } from "lucide-react"
-import Link from "next/link"
-import { Skeleton } from "@/components/ui/skeleton"
-import { RotaParaMapa } from "@/components/Map"
+import { supabase } from '@/lib/supabase'
+import { useUser } from '@/app/contexts/UserContext'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ArrowLeft, Clock, Edit, AlertCircle, HardHat, MapPin } from 'lucide-react'
+import Link from 'next/link'
+import type { Ponto } from '@/components/OverviewMap'
 
-type PontoDeInteresse = { id: number; nome: string; coords: { lat: number, lng: number }; }
 type RotaCompleta = {
-  id: number; nome: string; descricao: string | null; preco: number | null; duracao: string | null;
-  dificuldade: string | null; categoria: string | null; max_participantes: number | null;
-  origem_coords: { lat: number, lng: number, nome?: string } | null;
-  destino_coords: { lat: number, lng: number, nome?: string } | null;
-  perfis: { nome_completo: string | null, url_avatar: string | null } | null;
-  pontos_interesse: PontoDeInteresse[];
+    id: number;
+    nome: string;
+    descricao: string;
+    dificuldade: string;
+    duracao: string;
+    publicador_id: string;
+    origem_coords: Ponto | null;
+    destino_coords: Ponto | null;
+    pontos_interesse: Ponto[];
+    perfis: {
+        nome_completo: string | null;
+    } | null;
 }
 
-export default function RouteDetails() {
-  const [rota, setRota] = useState<RotaCompleta | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const params = useParams()
-  const router = useRouter()
-  const routeId = params.id
+export default function RouteDetailsPage() {
+    const params = useParams();
+    const router = useRouter();
+    const { user } = useUser();
+    const routeId = params.id as string;
 
-  const Map = useMemo(() => dynamic(() => import('@/components/Map'), { 
-    loading: () => <Skeleton className="w-full h-full rounded-lg" />, ssr: false 
-  }), [])
+    const [route, setRoute] = useState<RotaCompleta | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchRouteDetails = async () => {
-      if (!routeId) return
-      setIsLoading(true)
-      const { data, error } = await supabase
-        .from('rotas')
-        .select(`*, perfis ( nome_completo, url_avatar ), pontos_interesse ( id, nome, coords )`)
-        .eq('id', routeId)
-        .single()
-      if (error || !data) {
-        console.error("Erro ao buscar detalhes da rota:", error)
-        router.push('/not-found') 
-      } else {
-        setRota(data as RotaCompleta)
-      }
-      setIsLoading(false)
+    const RouteViewerMap = useMemo(() => dynamic(
+        () => import('@/components/OverviewMap'),
+        {
+            loading: () => <Skeleton className="h-full w-full" />,
+            ssr: false,
+        }
+    ), []);
+    
+    useEffect(() => {
+        const fetchRouteDetails = async () => {
+            if (!routeId) return;
+
+            setIsLoading(true);
+            const { data, error } = await supabase
+                .from('rotas')
+                .select(`
+                    *,
+                    pontos_interesse(*),
+                    perfis ( nome_completo )
+                `)
+                .eq('id', routeId)
+                .single();
+            
+            if (error || !data) {
+                console.error("Erro ao buscar detalhes da rota:", error);
+                setError("Não foi possível encontrar esta rota.");
+            } else {
+                setRoute(data as any);
+            }
+            setIsLoading(false);
+        };
+
+        fetchRouteDetails();
+    }, [routeId]);
+
+    // Função para gerar o link do Google Maps com origem, destino e waypoints
+    const handleOpenInMaps = () => {
+        if (!route || !route.origem_coords) return;
+
+        const origin = `${route.origem_coords.lat},${route.origem_coords.lng}`;
+        
+        let destination = "";
+        if (route.destino_coords) {
+            destination = `&destination=${route.destino_coords.lat},${route.destino_coords.lng}`;
+        } else {
+            destination = `&destination=${origin}`; 
+        }
+
+        let waypoints = "";
+        if (route.pontos_interesse && route.pontos_interesse.length > 0) {
+            const points = route.pontos_interesse.map(p => `${p.lat},${p.lng}`).join('|');
+            waypoints = `&waypoints=${points}`;
+        }
+
+        // Abre o Google Maps em modo de navegação
+        const mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}${destination}${waypoints}&travelmode=driving`;
+        window.open(mapUrl, '_blank');
+    };
+
+    const renderActionButton = () => {
+        if (!route) return null;
+
+        if (user && user.id === route.publicador_id) {
+            return (
+                <Link href={`/publisher/routes/edit/${route.id}`} passHref>
+                    <Button className="w-full" size="lg">
+                        <Edit className="mr-2 h-4 w-4" /> Editar Minha Rota
+                    </Button>
+                </Link>
+            );
+        }
+
+        // Botão para todos os outros utilizadores (incluindo não logados)
+        return (
+            <Button className="w-full bg-blue-600 hover:bg-blue-700" size="lg" onClick={handleOpenInMaps}>
+                <MapPin className="mr-2 h-4 w-4" /> Abrir no Google Maps
+            </Button>
+        );
     }
-    fetchRouteDetails()
-  }, [routeId, router])
+    
+    if (isLoading) {
+        return <div className="p-8 text-center">A carregar detalhes da rota...</div>;
+    }
 
-  if (isLoading) {
+    if (error || !route) {
+        return <div className="p-8 text-center text-red-600 flex flex-col items-center gap-4"><AlertCircle size={48} /><span>{error}</span></div>;
+    }
+
+    const getDifficultyColor = (difficulty: string) => {
+        switch (difficulty) {
+            case "Fácil": return "bg-green-100 text-green-800";
+            case "Moderado": return "bg-yellow-100 text-yellow-800";
+            case "Difícil": return "bg-red-100 text-red-800";
+            default: return "bg-gray-100 text-gray-800";
+        }
+    }
+
     return (
-        <div className="p-4 space-y-4">
-            <Skeleton className="h-48 w-full" /> <Skeleton className="h-8 w-3/4 mt-4" />
-            <Skeleton className="h-20 w-full" /> <Skeleton className="h-32 w-full" />
+        <div className="min-h-screen bg-muted/40">
+            <div className="sticky top-0 bg-background/80 backdrop-blur-sm border-b p-2 flex items-center gap-2 z-10">
+                <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                    <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <h1 className="text-lg font-semibold truncate">{route.nome}</h1>
+            </div>
+
+            <div className="relative h-64 w-full">
+                <RouteViewerMap 
+                    pontoInicio={route.origem_coords}
+                    pontoFim={route.destino_coords}
+                    pontosInteresse={route.pontos_interesse}
+                />
+            </div>
+
+            <div className="p-4 space-y-6 pb-24">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-2xl">{route.nome}</CardTitle>
+                        <CardDescription>
+                            Uma experiência criada por <span className="font-medium">{route.perfis?.nome_completo || 'um publicador local'}</span>
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-wrap gap-4 mb-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                <span>{route.duracao || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <HardHat className="h-4 w-4" />
+                                <Badge className={getDifficultyColor(route.dificuldade)}>{route.dificuldade || 'N/A'}</Badge>
+                            </div>
+                        </div>
+                        <p className="text-foreground/80 whitespace-pre-wrap">{route.descricao}</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t">
+                {renderActionButton()}
+            </div>
         </div>
-    )
-  }
-
-  if (!rota) return <div className="p-4 text-center">Rota não encontrada.</div>
-  
-  const rotaParaMapa: RotaParaMapa = {
-      origem_coords: rota.origem_coords,
-      destino_coords: rota.destino_coords,
-      pontos_interesse: rota.pontos_interesse.map(p => ({ 
-          id: p.id, 
-          lat: p.coords.lat, 
-          lng: p.coords.lng, 
-          nome: p.nome 
-      }))
-  }
-
-  return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b flex-shrink-0">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => router.back()}><ArrowLeft className="w-4 h-4" /></Button>
-          <div className="flex space-x-2"><Button variant="ghost" size="sm"><Share className="w-4 h-4" /></Button></div>
-        </div>
-      </header>
-
-      <main className="flex-grow overflow-y-auto">
-        <div className="p-4 space-y-6">
-          <div>
-            {rota.categoria && <Badge variant="outline" className="mb-2">{rota.categoria}</Badge>}
-            <h1 className="text-2xl font-bold mb-2">{rota.nome}</h1>
-            <p className="text-gray-700 mb-4">{rota.descricao}</p>
-          </div>
-
-          <Card>
-            <CardHeader><CardTitle className="text-lg flex items-center"><Navigation className="w-5 h-5 mr-2"/> Mapa da Rota</CardTitle></CardHeader>
-            <CardContent>
-              <div className="w-full h-[300px] rounded-lg overflow-hidden border">
-                {rotaParaMapa.origem_coords ? <Map rota={rotaParaMapa} /> : <div className="flex items-center justify-center h-full bg-gray-100 text-gray-500">Mapa indisponível.</div>}
-              </div>
-              {rota.pontos_interesse.length > 0 && (
-                <div className="space-y-2 mt-4">
-                  <h4 className="font-medium text-sm">Pontos da Rota:</h4>
-                  <ul className="list-none space-y-2">
-                    {rota.pontos_interesse.map((ponto) => (
-                      <li key={ponto.id} className="flex items-start space-x-2 text-sm">
-                        <Pin className="w-4 h-4 text-blue-500 flex-shrink-0 mt-1" />
-                        <span>{ponto.nome}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Avatar><AvatarImage src={rota.perfis?.url_avatar || "/placeholder.svg"} /><AvatarFallback>{rota.perfis?.nome_completo?.charAt(0) || 'P'}</AvatarFallback></Avatar>
-                <div className="flex-1"><h3 className="font-medium">{rota.perfis?.nome_completo || "Publicador Anônimo"}</h3></div>
-                <Button variant="outline" size="sm"><MessageSquare className="w-4 h-4 mr-2" /> Contato</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-                <CardContent className="p-4 text-center">
-                    <DollarSign className="w-6 h-6 mx-auto text-green-600 mb-2" />
-                    <p className="text-2xl font-bold">R$ {rota.preco || 'Grátis'}</p>
-                    <p className="text-sm text-gray-600">por pessoa</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardContent className="p-4 text-center">
-                    <Clock className="w-6 h-6 mx-auto text-blue-600 mb-2" />
-                    <p className="text-2xl font-bold">{rota.duracao || 'N/A'}</p>
-                    <p className="text-sm text-gray-600">duração</p>
-                </CardContent>
-            </Card>
-          </div>
-        </div>
-      </main>
-
-      <footer className="bg-white border-t p-4 flex-shrink-0">
-        <div className="flex space-x-3">
-          <Button variant="outline" className="flex-1">Mensagem</Button>
-          <Link href={`/user/plan/${rota.id}`} className="flex-1"><Button className="w-full bg-blue-600 hover:bg-blue-700">Planejar Rota</Button></Link>
-        </div>
-      </footer>
-    </div>
-  )
+    );
 }
