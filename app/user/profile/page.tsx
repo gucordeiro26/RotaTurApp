@@ -1,168 +1,148 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/app/contexts/UserContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
-import {
-  ArrowLeft,
-  Edit,
-  Star,
-  MapPin,
-  Calendar,
-  Heart,
-  Bell,
-  Shield,
-  CreditCard,
-  HelpCircle,
-  LogOut,
-  Camera,
-  Award,
-  Compass,
-  Bookmark,
-} from "lucide-react"
-import Link from "next/link"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Shield, User, Upload, Save, CheckCircle } from "lucide-react"
 
-// Tipo para as estatísticas do usuário
-type UserStats = {
-  totalPlanos: number
-  rotasFavoritas: number
-  // Poderíamos adicionar mais, como rotas completadas
-}
-
-export default function UserProfile() {
-  const router = useRouter()
-  const { user, profile, isLoading: isUserLoading } = useUser()
-  const [stats, setStats] = useState<UserStats>({ totalPlanos: 0, rotasFavoritas: 0 })
-  const [isLoadingStats, setIsLoadingStats] = useState(true)
+export default function UserProfilePage() {
+  const { user, profile } = useUser()
+  const [nome, setNome] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
 
   useEffect(() => {
-    const fetchUserStats = async () => {
-      if (!user) return
-      setIsLoadingStats(true)
-
-      // Busca o total de planos (reservas)
-      const { count: planosCount, error: planosError } = await supabase
-        .from('reservas')
-        .select('*', { count: 'exact', head: true })
-        .eq('usuario_id', user.id)
-
-      // Busca o total de rotas favoritas
-      const { count: favoritosCount, error: favoritosError } = await supabase
-        .from('favoritos')
-        .select('*', { count: 'exact', head: true })
-        .eq('usuario_id', user.id)
-      
-      if (planosError || favoritosError) {
-        console.error("Erro ao buscar estatísticas:", planosError || favoritosError)
-      } else {
-        setStats({
-          totalPlanos: planosCount || 0,
-          rotasFavoritas: favoritosCount || 0,
-        })
-      }
-      setIsLoadingStats(false)
+    if (profile) {
+      setNome(profile.nome_completo || "")
     }
+  }, [profile])
 
-    fetchUserStats()
-  }, [user])
-  
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/') // Redireciona para o login após o logout
+  const handleUpdateProfile = async () => {
+    if (!user) return
+    setIsLoading(true)
+    setSuccessMessage("")
+
+    const { error } = await supabase
+      .from('perfis')
+      .update({ nome_completo: nome })
+      .eq('id', user.id)
+
+    if (error) {
+      alert("Erro ao atualizar perfil.")
+    } else {
+      setSuccessMessage("Perfil atualizado com sucesso!")
+      // Forçar reload da página para atualizar o contexto (opcional, mas seguro)
+      window.location.reload()
+    }
+    setIsLoading(false)
   }
 
-  if (isUserLoading) {
-    return <div className="p-4"><Skeleton className="w-full h-screen"/></div>
+  const handleBecomePublisher = async () => {
+    if (!user) return
+    const confirm = window.confirm("Ao tornar-se Publicador, você terá acesso ao painel para criar e gerir as suas próprias rotas turísticas. Deseja continuar?")
+    
+    if (confirm) {
+      setIsLoading(true)
+      const { error } = await supabase
+        .from('perfis')
+        .update({ tipo_perfil: 'publicador' })
+        .eq('id', user.id)
+
+      if (error) {
+        alert("Erro ao atualizar permissões.")
+      } else {
+        alert("Parabéns! Agora você é um Publicador. A página será recarregada para liberar o seu acesso.")
+        window.location.reload()
+      }
+      setIsLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Button variant="ghost" size="sm" onClick={() => router.back()}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <h1 className="text-xl font-semibold">Meu Perfil</h1>
-          </div>
-          <Button variant="ghost" size="sm">
-            <Edit className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <h1 className="text-3xl font-bold text-gray-900">Meu Perfil</h1>
 
-      <div className="p-4 space-y-6 pb-24">
-        {/* Profile Info */}
+        {/* Cartão de Dados Pessoais */}
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-4">
-              <Avatar className="w-20 h-20">
-                <AvatarImage src={profile?.url_avatar || "/placeholder.svg?height=80&width=80"} />
-                <AvatarFallback className="text-lg">{profile?.nome_completo?.charAt(0) || 'U'}</AvatarFallback>
+          <CardHeader>
+            <CardTitle>Informações Pessoais</CardTitle>
+            <CardDescription>Atualize os seus dados de identificação.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center gap-6">
+              <Avatar className="h-24 w-24">
+                <AvatarImage src={profile?.url_avatar || undefined} />
+                <AvatarFallback className="text-2xl">{profile?.nome_completo?.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
-              <div className="flex-1">
-                <h2 className="text-xl font-semibold">{profile?.nome_completo}</h2>
-                <p className="text-gray-600">{user?.email}</p>
-              </div>
+              {/* Futuramente: Botão de Upload de Avatar aqui */}
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input id="email" value={user?.email || ""} disabled className="bg-gray-100" />
+              <p className="text-xs text-gray-500">O e-mail não pode ser alterado.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome Completo</Label>
+              <Input 
+                id="nome" 
+                value={nome} 
+                onChange={(e) => setNome(e.target.value)} 
+              />
+            </div>
+
+            {successMessage && (
+              <div className="flex items-center text-green-600 text-sm bg-green-50 p-3 rounded-md">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {successMessage}
+              </div>
+            )}
           </CardContent>
+          <CardFooter className="border-t pt-6">
+            <Button onClick={handleUpdateProfile} disabled={isLoading}>
+              {isLoading ? "Salvando..." : <><Save className="w-4 h-4 mr-2" /> Salvar Alterações</>}
+            </Button>
+          </CardFooter>
         </Card>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <Calendar className="w-8 h-8 mx-auto text-blue-600 mb-2" />
-              {isLoadingStats ? <Skeleton className="h-8 w-1/2 mx-auto"/> : <p className="text-2xl font-bold">{stats.totalPlanos}</p>}
-              <p className="text-sm text-gray-600">Total de Planos</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <Heart className="w-8 h-8 mx-auto text-red-600 mb-2" />
-              {isLoadingStats ? <Skeleton className="h-8 w-1/2 mx-auto"/> : <p className="text-2xl font-bold">{stats.rotasFavoritas}</p>}
-              <p className="text-sm text-gray-600">Rotas Favoritas</p>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Settings */}
-        <Card>
-            <CardHeader><CardTitle className="text-lg">Opções</CardTitle></CardHeader>
+        {/* Cartão de Tipo de Conta (Apenas para quem AINDA NÃO é publicador/admin) */}
+        {profile?.tipo_perfil === 'usuario' && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <div className="flex items-center gap-2 text-blue-700">
+                <Shield className="w-6 h-6" />
+                <CardTitle className="text-xl">Quero Publicar Rotas</CardTitle>
+              </div>
+              <CardDescription className="text-blue-600">
+                Torne-se um Publicador para criar, editar e compartilhar as suas próprias experiências turísticas na plataforma.
+              </CardDescription>
+            </CardHeader>
             <CardContent>
-                <Link href="/user/favorites">
-                    <div className="flex items-center space-x-3 py-3 border-b">
-                        <Heart className="w-5 h-5 text-gray-600" />
-                        <p className="font-medium text-sm">Rotas Favoritas</p>
-                    </div>
-                </Link>
-                {/* Outras opções de configuração podem vir aqui */}
-                <div className="border-t mt-4 pt-4">
-                    <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50">
-                        <LogOut className="w-5 h-5 mr-3" />
-                        Sair da Conta
-                    </Button>
-                </div>
+              <ul className="list-disc list-inside text-sm text-blue-800 space-y-1 mb-4">
+                <li>Acesso ao Painel de Controle</li>
+                <li>Ferramentas de criação de rotas com mapa interativo</li>
+                <li>Gestão de visibilidade das suas rotas</li>
+              </ul>
+              <Button onClick={handleBecomePublisher} className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
+                Ativar Modo Publicador
+              </Button>
             </CardContent>
-        </Card>
-      </div>
+          </Card>
+        )}
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
-        <div className="grid grid-cols-4 py-2">
-            <Link href="/user/dashboard" className="flex flex-col items-center py-2 text-gray-600"><Compass className="w-5 h-5" /><span className="text-xs mt-1">Explorar</span></Link>
-            <Link href="/user/routes" className="flex flex-col items-center py-2 text-gray-600"><MapPin className="w-5 h-5" /><span className="text-xs mt-1">Rotas</span></Link>
-            <Link href="/user/plans" className="flex flex-col items-center py-2 text-gray-600"><Calendar className="w-5 h-5" /><span className="text-xs mt-1">Meus Planos</span></Link>
-            <Link href="/user/profile" className="flex flex-col items-center py-2 text-green-600"><Bookmark className="w-5 h-5" /><span className="text-xs mt-1">Perfil</span></Link>
+        {/* Feedback Visual do Perfil Atual */}
+        <div className="flex justify-center mt-8">
+            <Badge variant="outline" className="px-4 py-2 text-sm uppercase tracking-wider text-gray-500">
+                Perfil Atual: <span className="font-bold ml-2 text-gray-900">{profile?.tipo_perfil}</span>
+            </Badge>
         </div>
       </div>
     </div>

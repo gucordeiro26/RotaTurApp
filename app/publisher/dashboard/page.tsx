@@ -22,29 +22,23 @@ export default function PublisherDashboard() {
     useEffect(() => {
         const fetchData = async () => {
             if (!user?.id) return;
-
             setIsLoading(true);
 
-            // Busca apenas as rotas, sem contar reservas
             const { data: rotasData, error: rotasError } = await supabase
                 .from('rotas')
                 .select('id, nome')
                 .eq('publicador_id', user.id)
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: false }); // ou 'criado_em'
 
             if (rotasError) {
                 console.error("Erro ao buscar rotas:", rotasError);
-                setIsLoading(false);
-                return;
+            } else {
+                setRotas(rotasData || []);
             }
-
-            setRotas(rotasData || []);
             setIsLoading(false);
         }
 
-        if (user?.id) {
-            fetchData();
-        }
+        if (user?.id) fetchData();
     }, [user?.id]);
 
     if (isLoading) {
@@ -54,13 +48,7 @@ export default function PublisherDashboard() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
                     <Card><CardHeader><Skeleton className="h-4 w-24" /></CardHeader><CardContent><Skeleton className="h-8 w-12" /></CardContent></Card>
                 </div>
-                <Card>
-                    <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
-                    <CardContent className="space-y-4">
-                        <Skeleton className="h-8 w-full" />
-                        <Skeleton className="h-8 w-full" />
-                    </CardContent>
-                </Card>
+                <Card><CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>
             </div>
         );
     }
@@ -74,7 +62,6 @@ export default function PublisherDashboard() {
                 </Link>
             </div>
 
-            {/* Card único de Total de Rotas */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -83,9 +70,7 @@ export default function PublisherDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{rotas.length}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Suas rotas ativas e rascunhos.
-                        </p>
+                        <p className="text-xs text-muted-foreground">Suas rotas ativas e rascunhos.</p>
                     </CardContent>
                 </Card>
             </div>
@@ -94,14 +79,10 @@ export default function PublisherDashboard() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Rotas Recentes</CardTitle>
-                        <CardDescription>
-                            As suas rotas criadas mais recentemente.
-                        </CardDescription>
+                        <CardDescription>As suas rotas criadas mais recentemente.</CardDescription>
                     </div>
                      <Link href="/publisher/routes">
-                        <Button variant="outline" size="sm">
-                            Ver Todas
-                        </Button>
+                        <Button variant="outline" size="sm">Ver Todas</Button>
                     </Link>
                 </CardHeader>
                 <CardContent>
@@ -112,8 +93,7 @@ export default function PublisherDashboard() {
                                     <span className="font-medium">{rota.nome}</span>
                                     <Link href={`/publisher/routes/edit/${rota.id}`}>
                                         <Button variant="ghost" size="sm">
-                                            Editar
-                                            <ArrowUpRight className="h-4 w-4 ml-2" />
+                                            Editar <ArrowUpRight className="h-4 w-4 ml-2" />
                                         </Button>
                                     </Link>
                                 </div>
