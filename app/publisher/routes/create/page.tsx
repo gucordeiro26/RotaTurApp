@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Map, Save, Trash2, Pin, Play, Flag, Loader2 } from "lucide-react"
+import { ArrowLeft, Map, Save, Trash2, Pin, Play, Flag, Loader2, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { Ponto } from "@/components/MapEditor"
@@ -25,6 +25,7 @@ export default function CreateRoutePage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
+    // Estados do formulário
     const [nome, setNome] = useState("");
     const [descricaoCurta, setDescricaoCurta] = useState("");
     const [descricao, setDescricao] = useState("");
@@ -32,7 +33,10 @@ export default function CreateRoutePage() {
     const [dificuldade, setDificuldade] = useState("Fácil");
     const [duracao, setDuracao] = useState("");
     const [maxParticipantes, setMaxParticipantes] = useState(0);
+    // --- NOVO ESTADO PARA IMAGEM ---
+    const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
 
+    // Estados do mapa
     const [pontoInicio, setPontoInicio] = useState<Ponto | null>(null);
     const [pontoFim, setPontoFim] = useState<Ponto | null>(null);
     const [pontosDeInteresse, setPontosDeInteresse] = useState<Ponto[]>([]);
@@ -56,6 +60,29 @@ export default function CreateRoutePage() {
         setPontosDeInteresse(prev => prev.filter((_, i) => i !== index));
     }
 
+    // Função auxiliar para upload de imagem
+    const uploadImagem = async (file: File): Promise<string | null> => {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`; // Nome único simples
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('rotas')
+                .upload(filePath, file);
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            const { data } = supabase.storage.from('rotas').getPublicUrl(filePath);
+            return data.publicUrl;
+        } catch (error) {
+            console.error("Erro no upload:", error);
+            return null;
+        }
+    }
+
     const handleSubmitRoute = async () => {
         if (!user || !nome) {
             setError("O nome da rota é obrigatório.");
@@ -65,7 +92,19 @@ export default function CreateRoutePage() {
         setIsSubmitting(true);
         setError(null);
 
-        // Removido o campo 'preco' do objeto inserido
+        let imagemUrl = null;
+
+        // 1. Faz o upload da imagem se existir
+        if (imagemArquivo) {
+            imagemUrl = await uploadImagem(imagemArquivo);
+            if (!imagemUrl) {
+                setError("Erro ao fazer upload da imagem. Tente novamente.");
+                setIsSubmitting(false);
+                return;
+            }
+        }
+
+        // 2. Insere a rota no banco
         const { data: newRoute, error: insertRouteError } = await supabase
             .from('rotas')
             .insert({
@@ -79,7 +118,8 @@ export default function CreateRoutePage() {
                 publicador_id: user.id,
                 origem_coords: pontoInicio,
                 destino_coords: pontoFim,
-                status: 'Rascunho'
+                status: 'Rascunho',
+                imagem_url: imagemUrl // Salva a URL da imagem
             })
             .select('id')
             .single();
@@ -90,6 +130,7 @@ export default function CreateRoutePage() {
             return;
         }
 
+        // 3. Insere pontos de interesse
         if (pontosDeInteresse.length > 0) {
             const pontosParaInserir = pontosDeInteresse.map(ponto => ({
                 rota_id: newRoute.id,
@@ -102,9 +143,7 @@ export default function CreateRoutePage() {
                 .insert(pontosParaInserir);
 
             if (insertPontosError) {
-                alert(`Rota "${nome}" criada, mas houve erro nos pontos de interesse.`);
-                router.push('/publisher/routes');
-                return;
+                alert(`Rota criada, mas houve erro nos pontos de interesse.`);
             }
         }
 
@@ -127,6 +166,21 @@ export default function CreateRoutePage() {
                 <Card>
                     <CardHeader><CardTitle>Informações Gerais</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
+                         {/* --- NOVO CAMPO DE IMAGEM --- */}
+                         <div className="space-y-2">
+                            <Label htmlFor="imagem">Imagem da Capa</Label>
+                            <div className="flex items-center gap-4">
+                                <Input 
+                                    id="imagem" 
+                                    type="file" 
+                                    accept="image/*"
+                                    onChange={(e) => setImagemArquivo(e.target.files?.[0] || null)}
+                                    className="cursor-pointer"
+                                />
+                                {imagemArquivo && <span className="text-sm text-green-600 flex items-center"><ImageIcon className="w-4 h-4 mr-1"/> Selecionada</span>}
+                            </div>
+                         </div>
+
                          <div className="space-y-2"><Label htmlFor="nome">Nome da Rota *</Label><Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
                          <div className="space-y-2"><Label htmlFor="descricao_curta">Descrição Curta</Label><Input id="descricao_curta" value={descricaoCurta} onChange={(e) => setDescricaoCurta(e.target.value)} /></div>
                          <div className="space-y-2"><Label htmlFor="descricao">Descrição Completa</Label><Textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} /></div>
@@ -134,7 +188,6 @@ export default function CreateRoutePage() {
                            <div className="space-y-2"><Label htmlFor="categoria">Categoria</Label><Select value={categoria} onValueChange={setCategoria}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="historia">História</SelectItem><SelectItem value="natureza">Natureza</SelectItem><SelectItem value="gastronomia">Gastronomia</SelectItem><SelectItem value="aventura">Aventura</SelectItem></SelectContent></Select></div>
                            <div className="space-y-2"><Label htmlFor="dificuldade">Dificuldade</Label><Select value={dificuldade} onValueChange={setDificuldade}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Fácil">Fácil</SelectItem><SelectItem value="Moderado">Moderado</SelectItem><SelectItem value="Difícil">Difícil</SelectItem></SelectContent></Select></div>
                          </div>
-                         {/* Removido o input de Preço */}
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            <div className="space-y-2"><Label htmlFor="duracao">Duração</Label><Input id="duracao" value={duracao} onChange={(e) => setDuracao(e.target.value)} placeholder="Ex: 2 horas"/></div>
                            <div className="space-y-2"><Label htmlFor="max_participantes">Máx. de Pessoas</Label><Input id="max_participantes" type="number" value={maxParticipantes} onChange={(e) => setMaxParticipantes(parseInt(e.target.value) || 0)} /></div>

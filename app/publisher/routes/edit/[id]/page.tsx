@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Map, Save, Trash2, Pin, Play, Flag, Loader2 } from "lucide-react"
+import { ArrowLeft, Map, Save, Trash2, Pin, Play, Flag, Loader2, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { Ponto } from "@/components/MapEditor"
@@ -27,6 +27,7 @@ type FormData = {
     dificuldade: string;
     max_participantes: number;
     status: string;
+    imagem_url: string | null; // Adicionado campo de imagem
 }
 
 export default function EditRoutePage() {
@@ -40,6 +41,9 @@ export default function EditRoutePage() {
     const [error, setError] = useState<string | null>(null);
     
     const [formData, setFormData] = useState<FormData | null>(null);
+    const [imagemArquivo, setImagemArquivo] = useState<File | null>(null); // Estado para novo arquivo
+    const [previewImagem, setPreviewImagem] = useState<string | null>(null); // Estado para preview
+
     const [pontoInicio, setPontoInicio] = useState<Ponto | null>(null);
     const [pontoFim, setPontoFim] = useState<Ponto | null>(null);
     const [pontosDeInteresse, setPontosDeInteresse] = useState<Ponto[]>([]);
@@ -80,8 +84,10 @@ export default function EditRoutePage() {
                 dificuldade: data.dificuldade || "Fácil",
                 max_participantes: data.max_participantes || 0,
                 status: data.status || "Rascunho",
+                imagem_url: data.imagem_url || null,
             });
             
+            setPreviewImagem(data.imagem_url); // Define o preview inicial
             setPontoInicio(data.origem_coords);
             setPontoFim(data.destino_coords);
             
@@ -113,6 +119,14 @@ export default function EditRoutePage() {
         setFormData(prev => prev ? { ...prev, [field]: value } : null);
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setImagemArquivo(file);
+            setPreviewImagem(URL.createObjectURL(file)); // Cria URL temporária para preview
+        }
+    };
+
     const handleAddPonto = (ponto: Ponto) => {
         if (modoEdicaoMapa === 'inicio') setPontoInicio(ponto);
         else if (modoEdicaoMapa === 'fim') setPontoFim(ponto);
@@ -121,6 +135,27 @@ export default function EditRoutePage() {
 
     const handleRemovePontoInteresse = (index: number) => {
         setPontosDeInteresse(prev => prev.filter((_, i) => i !== index));
+    }
+
+    // Função de upload (reutilizada)
+    const uploadImagem = async (file: File): Promise<string | null> => {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('rotas')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('rotas').getPublicUrl(filePath);
+            return data.publicUrl;
+        } catch (error) {
+            console.error("Erro no upload:", error);
+            return null;
+        }
     }
 
     const handleUpdateRoute = async () => {
@@ -132,10 +167,25 @@ export default function EditRoutePage() {
         setIsUpdating(true);
         setError(null);
 
+        let finalImageUrl = formData.imagem_url;
+
+        // Se houver um novo arquivo, faz o upload
+        if (imagemArquivo) {
+            const uploadedUrl = await uploadImagem(imagemArquivo);
+            if (uploadedUrl) {
+                finalImageUrl = uploadedUrl;
+            } else {
+                setError("Erro ao fazer upload da nova imagem.");
+                setIsUpdating(false);
+                return;
+            }
+        }
+
         const { error: updateRotaError } = await supabase
             .from('rotas')
             .update({
                 ...formData,
+                imagem_url: finalImageUrl, // Atualiza a URL
                 origem_coords: pontoInicio,
                 destino_coords: pontoFim,
             })
@@ -161,7 +211,7 @@ export default function EditRoutePage() {
                 .insert(pontosParaInserir);
 
             if (insertPontosError) {
-                setError(`Erro ao guardar os novos pontos: ${insertPontosError.message}`);
+                setError(`Erro ao guardar pontos de interesse: ${insertPontosError.message}`);
                 setIsUpdating(false);
                 return;
             }
@@ -171,15 +221,9 @@ export default function EditRoutePage() {
         router.push('/publisher/routes');
     };
     
-    if (isLoading) {
-        return <div className="p-8 text-center">A carregar editor de rotas...</div>;
-    }
-    if (error) {
-        return <div className="p-8 text-center text-red-600">{error}</div>;
-    }
-    if (!formData) {
-        return <div className="p-8 text-center">Não foi possível carregar os dados da rota.</div>;
-    }
+    if (isLoading) return <div className="p-8 text-center">A carregar editor...</div>;
+    if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
+    if (!formData) return <div className="p-8 text-center">Erro ao carregar dados.</div>;
 
     return (
         <div className="flex flex-col h-screen bg-gray-50">
@@ -198,6 +242,27 @@ export default function EditRoutePage() {
                 <Card>
                     <CardHeader><CardTitle>Informações Gerais</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
+                        {/* Campo de Imagem */}
+                        <div className="space-y-2">
+                            <Label htmlFor="imagem">Imagem da Capa</Label>
+                            <div className="flex flex-col gap-4">
+                                {previewImagem && (
+                                    <div className="relative w-full h-48 rounded-md overflow-hidden border">
+                                        <img src={previewImagem} alt="Preview" className="object-cover w-full h-full" />
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-4">
+                                    <Input 
+                                        id="imagem" 
+                                        type="file" 
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                        className="cursor-pointer"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="space-y-2"><Label htmlFor="nome">Nome da Rota *</Label><Input id="nome" value={formData.nome} onChange={(e) => handleInputChange('nome', e.target.value)} /></div>
                         <div className="space-y-2"><Label htmlFor="descricao_curta">Descrição Curta</Label><Input id="descricao_curta" value={formData.descricao_curta} onChange={(e) => handleInputChange('descricao_curta', e.target.value)} /></div>
                         <div className="space-y-2"><Label htmlFor="descricao">Descrição Completa</Label><Textarea id="descricao" value={formData.descricao} onChange={(e) => handleInputChange('descricao', e.target.value)} /></div>
@@ -206,7 +271,6 @@ export default function EditRoutePage() {
                            <div className="space-y-2"><Label htmlFor="dificuldade">Dificuldade</Label><Select value={formData.dificuldade} onValueChange={(v) => handleInputChange('dificuldade', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Fácil">Fácil</SelectItem><SelectItem value="Moderado">Moderado</SelectItem><SelectItem value="Difícil">Difícil</SelectItem></SelectContent></Select></div>
                            <div className="space-y-2"><Label htmlFor="status">Status</Label><Select value={formData.status} onValueChange={(v) => handleInputChange('status', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Ativo">Ativo</SelectItem><SelectItem value="Pausado">Pausado</SelectItem><SelectItem value="Rascunho">Rascunho</SelectItem></SelectContent></Select></div>
                         </div>
-                        {/* Removido o input de Preço */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            <div className="space-y-2"><Label htmlFor="duracao">Duração</Label><Input id="duracao" value={formData.duracao} onChange={(e) => handleInputChange('duracao', e.target.value)} placeholder="Ex: 2 horas"/></div>
                            <div className="space-y-2"><Label htmlFor="max_participantes">Máx. de Pessoas</Label><Input id="max_participantes" type="number" value={formData.max_participantes} onChange={(e) => handleInputChange('max_participantes', parseInt(e.target.value) || 0)} /></div>

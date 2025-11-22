@@ -23,6 +23,7 @@ type RotaCompleta = {
     origem_coords: Ponto | null;
     destino_coords: Ponto | null;
     pontos_interesse: Ponto[];
+    imagem_url: string | null; // Adicionado
     perfis: {
         nome_completo: string | null;
     } | null;
@@ -73,7 +74,6 @@ export default function RouteDetailsPage() {
         fetchRouteDetails();
     }, [routeId]);
 
-    // Função para gerar o link do Google Maps com origem, destino e waypoints
     const handleOpenInMaps = () => {
         if (!route || !route.origem_coords) return;
 
@@ -92,7 +92,6 @@ export default function RouteDetailsPage() {
             waypoints = `&waypoints=${points}`;
         }
 
-        // Abre o Google Maps em modo de navegação
         const mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}${destination}${waypoints}&travelmode=driving`;
         window.open(mapUrl, '_blank');
     };
@@ -110,7 +109,6 @@ export default function RouteDetailsPage() {
             );
         }
 
-        // Botão para todos os outros utilizadores (incluindo não logados)
         return (
             <Button className="w-full bg-blue-600 hover:bg-blue-700" size="lg" onClick={handleOpenInMaps}>
                 <MapPin className="mr-2 h-4 w-4" /> Abrir no Google Maps
@@ -118,13 +116,8 @@ export default function RouteDetailsPage() {
         );
     }
     
-    if (isLoading) {
-        return <div className="p-8 text-center">A carregar detalhes da rota...</div>;
-    }
-
-    if (error || !route) {
-        return <div className="p-8 text-center text-red-600 flex flex-col items-center gap-4"><AlertCircle size={48} /><span>{error}</span></div>;
-    }
+    if (isLoading) return <div className="p-8 text-center">A carregar detalhes...</div>;
+    if (error || !route) return <div className="p-8 text-center text-red-600">{error}</div>;
 
     const getDifficultyColor = (difficulty: string) => {
         switch (difficulty) {
@@ -144,40 +137,54 @@ export default function RouteDetailsPage() {
                 <h1 className="text-lg font-semibold truncate">{route.nome}</h1>
             </div>
 
-            <div className="relative h-64 w-full">
-                <RouteViewerMap 
-                    pontoInicio={route.origem_coords}
-                    pontoFim={route.destino_coords}
-                    pontosInteresse={route.pontos_interesse}
-                />
-            </div>
+            {/* --- IMAGEM DA ROTA (BANNER) --- */}
+            {route.imagem_url && (
+                <div className="w-full h-64 md:h-80 overflow-hidden relative">
+                    <img src={route.imagem_url} alt={route.nome} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                </div>
+            )}
 
-            <div className="p-4 space-y-6 pb-24">
-                <Card>
+            <div className="p-4 space-y-6 pb-24 -mt-4 relative z-0"> 
+                <Card className="shadow-lg border-0">
                     <CardHeader>
-                        <CardTitle className="text-2xl">{route.nome}</CardTitle>
+                        <CardTitle className="text-3xl">{route.nome}</CardTitle>
                         <CardDescription>
-                            Uma experiência criada por <span className="font-medium">{route.perfis?.nome_completo || 'um publicador local'}</span>
+                            Criada por <span className="font-medium text-primary">{route.perfis?.nome_completo}</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex flex-wrap gap-4 mb-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                <span>{route.duracao || 'N/A'}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <HardHat className="h-4 w-4" />
-                                <Badge className={getDifficultyColor(route.dificuldade)}>{route.dificuldade || 'N/A'}</Badge>
-                            </div>
+                        <div className="flex flex-wrap gap-3 mb-6">
+                            <Badge variant="outline" className="px-3 py-1 flex items-center gap-2 text-sm">
+                                <Clock className="h-4 w-4" /> {route.duracao || 'N/A'}
+                            </Badge>
+                            <Badge variant="secondary" className={`px-3 py-1 text-sm ${getDifficultyColor(route.dificuldade)}`}>
+                                <HardHat className="h-4 w-4 mr-2" /> {route.dificuldade}
+                            </Badge>
                         </div>
-                        <p className="text-foreground/80 whitespace-pre-wrap">{route.descricao}</p>
+                        <div className="prose prose-slate max-w-none text-foreground/80">
+                            <p className="whitespace-pre-wrap leading-relaxed">{route.descricao}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Mapa */}
+                <Card>
+                    <CardHeader><CardTitle className="text-lg">Itinerário</CardTitle></CardHeader>
+                    <CardContent className="p-0 overflow-hidden h-80 rounded-b-lg">
+                        <RouteViewerMap 
+                            pontoInicio={route.origem_coords}
+                            pontoFim={route.destino_coords}
+                            pontosInteresse={route.pontos_interesse}
+                        />
                     </CardContent>
                 </Card>
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t">
-                {renderActionButton()}
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/90 backdrop-blur-md border-t z-20">
+                <div className="max-w-4xl mx-auto">
+                    {renderActionButton()}
+                </div>
             </div>
         </div>
     );

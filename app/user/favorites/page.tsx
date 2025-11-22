@@ -1,57 +1,50 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/app/contexts/UserContext"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Heart, MapPin, Clock, Users, Star } from "lucide-react"
-import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MapPin, Clock, ArrowRight, Heart, ArrowLeft, ImageOff } from "lucide-react"
+import Link from "next/link"
 
-// O tipo de dado que esperamos receber do Supabase
-type RotaFavorita = {
+type Rota = {
   id: number
   nome: string
-  preco: number
-  duracao: string
-  dificuldade: string
+  descricao_curta: string | null
+  categoria: string | null
+  dificuldade: string | null
+  duracao: string | null
+  origem_coords: any
+  status: string
+  imagem_url: string | null; // Adicionado
 }
 
-export default function FavoritesPage() {
-  const router = useRouter()
+export default function UserFavoritesPage() {
   const { user } = useUser()
-  const [favoritos, setFavoritos] = useState<RotaFavorita[]>([])
+  const [rotas, setRotas] = useState<Rota[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const fetchFavorites = async () => {
       if (!user) return
       setIsLoading(true)
-
-      // Query para buscar as rotas favoritadas pelo usuário
-      // Ele olha na tabela 'favoritos' e pega os dados correspondentes da tabela 'rotas'
+      
       const { data, error } = await supabase
         .from('favoritos')
-        .select(`
-          rotas (
-            id,
-            nome,
-            preco,
-            duracao,
-            dificuldade
-          )
-        `)
+        .select('rota_id, rotas (*)')
         .eq('usuario_id', user.id)
 
       if (error) {
         console.error("Erro ao buscar favoritos:", error)
       } else if (data) {
-        // O resultado vem aninhado, então precisamos extrair os dados da rota
-        const rotasFavoritadas = data.map(item => item.rotas).filter(Boolean) as any[]
-        setFavoritos(rotasFavoritadas)
+        const rotasFavoritas = data
+            .map((item: any) => item.rotas)
+            .filter((r: any) => r !== null)
+        
+        setRotas(rotasFavoritas)
       }
       setIsLoading(false)
     }
@@ -59,55 +52,124 @@ export default function FavoritesPage() {
     fetchFavorites()
   }, [user])
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="px-4 py-3 flex items-center space-x-3">
-          <Button variant="ghost" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <h1 className="text-xl font-semibold">Minhas Rotas Favoritas</h1>
+  const removeFavorite = async (e: React.MouseEvent, rotaId: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user) return
+
+    setRotas(prev => prev.filter(r => r.id !== rotaId))
+    await supabase.from('favoritos').delete().match({ usuario_id: user.id, rota_id: rotaId })
+  }
+
+  const getDifficultyColor = (diff: string | null) => {
+    switch (diff) {
+      case "Fácil": return "bg-green-100 text-green-800";
+      case "Moderado": return "bg-yellow-100 text-yellow-800";
+      case "Difícil": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  }
+
+  if (isLoading) {
+    return (
+        <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+            <div className="max-w-6xl mx-auto">
+                <Skeleton className="h-8 w-48 mb-6" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <Skeleton className="h-[300px]" /><Skeleton className="h-[300px]" /><Skeleton className="h-[300px]" />
+                </div>
+            </div>
         </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto mb-8">
+        <div className="flex items-center gap-4 mb-2">
+            <Link href="/user/routes">
+                <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
+            </Link>
+            <h1 className="text-3xl font-bold text-gray-900">Meus Favoritos</h1>
+        </div>
+        <p className="text-gray-600 ml-14">As rotas que você guardou para a sua próxima aventura.</p>
       </div>
 
-      <div className="p-4 space-y-4 pb-24">
-        {isLoading ? (
-          // Skeleton loader enquanto os dados são carregados
-          <>
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </>
-        ) : favoritos.length > 0 ? (
-          // Lista de rotas favoritadas
-          favoritos.map(rota => (
-            <Link href={`/route-details/${rota.id}`} key={rota.id}>
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-sm mb-2">{rota.nome}</h3>
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center space-x-1"><Clock className="w-3 h-3" /><span>{rota.duracao}</span></div>
-                      <Badge variant="outline">{rota.dificuldade}</Badge>
+      <div className="max-w-6xl mx-auto">
+        {rotas.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {rotas.map((rota) => (
+              <Link href={`/route-details/${rota.id}`} key={rota.id} className="group block h-full">
+                <Card className="h-full flex flex-col transition-all duration-200 hover:shadow-lg border-gray-200 relative overflow-hidden">
+                  
+                  {/* --- IMAGEM --- */}
+                  <div className="h-40 bg-gray-100 relative">
+                    {rota.imagem_url ? (
+                        <img 
+                            src={rota.imagem_url} 
+                            alt={rota.nome} 
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-pink-50 to-rose-50 text-rose-200">
+                            <ImageOff className="w-12 h-12" />
+                        </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
+
+                    <div className="absolute top-3 right-3">
+                      <Badge className="bg-white/90 text-gray-800 hover:bg-white shadow-sm">
+                        {rota.categoria || 'Geral'}
+                      </Badge>
                     </div>
-                    <p className="font-semibold text-green-600">R$ {rota.preco}</p>
+                    
+                    <button
+                        onClick={(e) => removeFavorite(e, rota.id)}
+                        className="absolute top-3 left-3 p-2 rounded-full bg-white/90 hover:bg-red-50 text-red-500 shadow-sm transition-colors z-10"
+                        title="Remover dos favoritos"
+                    >
+                        <Heart className="w-5 h-5 fill-red-500" />
+                    </button>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))
-        ) : (
-          // Mensagem para quando não há favoritos
-          <div className="text-center py-16">
-            <Heart className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma rota favorita</h3>
-            <p className="mt-1 text-sm text-gray-500">Explore as rotas e clique no coração para salvá-las aqui.</p>
-            <div className="mt-6">
-              <Link href="/user/dashboard">
-                <Button>Explorar Rotas</Button>
+                  
+                  <CardHeader className="pb-3 pt-4">
+                    <CardTitle className="text-lg font-bold text-gray-900 line-clamp-1 group-hover:text-blue-600">
+                      {rota.nome}
+                    </CardTitle>
+                    <CardDescription className="line-clamp-2 h-10 text-sm">
+                      {rota.descricao_curta || "Sem descrição."}
+                    </CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent className="flex-grow">
+                    <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                        <Badge variant="secondary" className={getDifficultyColor(rota.dificuldade)}>
+                            {rota.dificuldade}
+                        </Badge>
+                        <div className="flex items-center bg-gray-100 px-2 py-1 rounded-md">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {rota.duracao || 'N/A'}
+                        </div>
+                    </div>
+                  </CardContent>
+
+                  <CardFooter className="pt-0 border-t bg-gray-50/50 p-4 flex justify-end">
+                    <Button size="sm" variant="ghost" className="text-blue-600 p-0 hover:bg-transparent">
+                        Ver Detalhes <ArrowRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </CardFooter>
+                </Card>
               </Link>
-            </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+            <Heart className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900">Ainda não tem favoritos</h3>
+            <p className="text-gray-500 mt-1 mb-6">Explore as rotas disponíveis e clique no coração para guardar as que mais gostar.</p>
+            <Link href="/user/routes">
+                <Button>Explorar Rotas</Button>
+            </Link>
           </div>
         )}
       </div>
