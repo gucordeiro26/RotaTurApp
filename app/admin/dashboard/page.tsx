@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RouteGuard } from "@/components/RouteGuard"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Users, Route, Shield, Plus, Edit, Trash2, BarChart3, Settings, LogOut, Bookmark } from "lucide-react"
+import { MapPin, Users, Route, Shield, Plus, Edit, Trash2, BarChart3, Settings, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
@@ -17,7 +17,6 @@ interface RouteType {
     nome_completo: string
   }
   status: string
-  reservas: [{ count: number }]
 }
 
 export default function AdminDashboard() {
@@ -26,7 +25,6 @@ export default function AdminDashboard() {
     { title: "Total de Rotas", value: "0", icon: Route, color: "bg-blue-500" },
     { title: "Usuários Ativos", value: "0", icon: Users, color: "bg-green-500" },
     { title: "Aprovações Pendentes", value: "0", icon: Shield, color: "bg-orange-500" },
-    { title: "Reservas", value: "0", icon: Bookmark, color: "bg-purple-500" },
   ])
   const [recentRoutes, setRecentRoutes] = useState<RouteType[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,14 +33,13 @@ export default function AdminDashboard() {
     const fetchDashboardData = async () => {
       setLoading(true)
       try {
-        // Fetch stats
+        // Buscar estatísticas (sem reservas)
         const { count: rotasCount } = await supabase.from("rotas").select("*", { count: "exact", head: true })
         const { count: usersCount } = await supabase.from("perfis").select("*", { count: "exact", head: true })
         const { count: pendingRoutesCount } = await supabase
           .from("rotas")
           .select("*", { count: "exact", head: true })
           .eq("status", "Rascunho")
-        const { count: reservasCount } = await supabase.from("reservas").select("*", { count: "exact", head: true })
 
         setStats([
           { title: "Total de Rotas", value: String(rotasCount ?? 0), icon: Route, color: "bg-blue-500" },
@@ -53,20 +50,18 @@ export default function AdminDashboard() {
             icon: Shield,
             color: "bg-orange-500",
           },
-          { title: "Reservas", value: String(reservasCount ?? 0), icon: Bookmark, color: "bg-purple-500" },
         ])
 
-        // Fetch recent routes
+        // Buscar rotas recentes
         const { data: recentRoutesData, error } = await supabase
           .from("rotas")
           .select(`
             id,
             nome,
-            publisher:publicador_id (
-              nome_completo
-            ),
             status,
-            reservas (count)
+            publicador:publicador_id (
+              nome_completo
+            )
           `)
           .order("criado_em", { ascending: false })
           .limit(3)
@@ -76,9 +71,8 @@ export default function AdminDashboard() {
         const formattedRoutes = recentRoutesData.map((route: any): RouteType => ({
           id: route.id,
           nome: route.nome,
-          publisher: route.publisher,
+          publisher: route.publicador || { nome_completo: 'Desconhecido' },
           status: route.status,
-          reservas: route.reservas
         }))
 
         setRecentRoutes(formattedRoutes)
@@ -122,7 +116,7 @@ export default function AdminDashboard() {
 
       <div className="p-4 space-y-6 pb-20">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {stats.map((stat, index) => (
             <Card key={index}>
               <CardContent className="p-4">
@@ -188,7 +182,6 @@ export default function AdminDashboard() {
                   <div className="flex-1">
                     <h4 className="font-medium text-sm">{route.nome}</h4>
                     <p className="text-xs text-gray-600">por {route.publisher.nome_completo}</p>
-                    <p className="text-xs text-gray-500">{route.reservas[0]?.count || 0} reservas</p>
                   </div>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
                     <Badge className="w-full sm:w-auto text-center" variant={route.status === "Ativo" ? "default" : "secondary"}>{route.status}</Badge>
