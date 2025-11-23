@@ -15,6 +15,7 @@ type UserContextType = {
   session: Session | null
   profile: Profile | null
   isLoading: boolean
+  refreshProfile: () => Promise<void>
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -24,6 +25,32 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data: profileData, error } = await supabase
+        .from('perfis')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.error("Erro ao buscar perfil:", error)
+        setProfile(null)
+      } else {
+        setProfile(profileData)
+      }
+    } catch (error) {
+      console.error("Erro ao buscar perfil:", error)
+      setProfile(null)
+    }
+  }
+
+  const refreshProfile = async () => {
+    if (user?.id) {
+      await fetchProfile(user.id)
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -38,20 +65,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null)
 
         if (session?.user) {
-          const { data: profileData, error } = await supabase
-            .from('perfis')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-
-          if (!isMounted) return
-
-          if (error) {
-            console.error("Erro ao buscar perfil:", error)
-            setProfile(null)
-          } else {
-            setProfile(profileData)
-          }
+          await fetchProfile(session.user.id)
         } else {
           setProfile(null)
         }
@@ -80,20 +94,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
         if (session?.user) {
           try {
-            const { data: profileData, error } = await supabase
-              .from('perfis')
-              .select('*')
-              .eq('id', session.user.id)
-              .single()
-            
-            if (!isMounted) return
-            
-            if (error) {
-              console.error("Erro ao buscar perfil:", error)
-              setProfile(null)
-            } else {
-              setProfile(profileData)
-            }
+            await fetchProfile(session.user.id)
           } catch (error) {
             console.error("Erro ao buscar perfil no listener:", error)
             if (isMounted) {
@@ -112,7 +113,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [])
 
-  const value = { session, user, profile, isLoading }
+  const value = { session, user, profile, isLoading, refreshProfile }
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>
 }

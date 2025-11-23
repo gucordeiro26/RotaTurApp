@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Shield, User, Upload, Save, CheckCircle } from "lucide-react"
 
 export default function UserProfilePage() {
-  const { user, profile } = useUser()
+  const { user, profile, refreshProfile } = useUser()
   const [nome, setNome] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
@@ -37,8 +37,10 @@ export default function UserProfilePage() {
       alert("Erro ao atualizar perfil.")
     } else {
       setSuccessMessage("Perfil atualizado com sucesso!")
-      // Forçar reload da página para atualizar o contexto (opcional, mas seguro)
-      window.location.reload()
+      // Atualizar o contexto sem recarregar a página
+      await refreshProfile()
+      // Limpar mensagem após 2 segundos
+      setTimeout(() => setSuccessMessage(""), 2000)
     }
     setIsLoading(false)
   }
@@ -58,7 +60,12 @@ export default function UserProfilePage() {
         alert("Erro ao atualizar permissões.")
       } else {
         alert("Parabéns! Agora você é um Publicador. A página será recarregada para liberar o seu acesso.")
-        window.location.reload()
+        // Atualizar o contexto
+        await refreshProfile()
+        // Aguardar um pouco para o contexto ser atualizado
+        setTimeout(() => {
+          window.location.reload()
+        }, 500)
       }
       setIsLoading(false)
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser, type Profile } from "@/app/contexts/UserContext";
 import { supabase } from "@/lib/supabase";
@@ -37,14 +37,16 @@ export default function UserLayout({
 }) {
     const { user, profile, isLoading } = useUser();
     const router = useRouter();
+    const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
     useEffect(() => {
-        if (!isLoading) {
+        if (!isLoading && !hasCheckedAuth) {
             if (!user || profile?.tipo_perfil !== 'usuario') {
                 router.replace('/');
             }
+            setHasCheckedAuth(true);
         }
-    }, [user, profile, isLoading, router]);
+    }, [user, profile, isLoading, hasCheckedAuth, router]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
