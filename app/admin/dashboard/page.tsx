@@ -4,11 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RouteGuard } from "@/components/RouteGuard"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Users, Route, Shield, Plus, Edit, Trash2, BarChart3, Settings, LogOut } from "lucide-react"
+import { MapPin, Users, Route, Shield, Plus, Edit, Trash2, BarChart3, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useEffect, useState } from "react"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface RouteType {
   id: number
@@ -96,37 +97,32 @@ export default function AdminDashboard() {
 
   return (
     <RouteGuard allowedRoles={["admin"]}>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <MapPin className="w-4 h-4 text-white" />
+      <div className="flex flex-col h-screen bg-gray-50 w-full">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b sticky top-0 z-40 flex-shrink-0">
+        <div className="px-3 py-2 flex items-center justify-between w-full">
+          <div className="flex items-center space-x-2 min-w-0 flex-1">
+            <div className="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <MapPin className="w-3.5 h-3.5 text-white" />
             </div>
-            <h1 className="text-xl font-semibold">Painel Administrativo</h1>
+            <h1 className="text-base font-semibold truncate">Painel Admin</h1>
           </div>
-          <Link href="/admin/settings">
-            <Button variant="ghost" size="sm">
-              <Settings className="w-4 h-4" />
-            </Button>
-          </Link>
         </div>
       </div>
 
-      <div className="p-4 space-y-6 pb-20">
+      <div className="flex-1 overflow-y-auto p-2 space-y-3 pb-20 w-full">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-2">
           {stats.map((stat, index) => (
-            <Card key={index}>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
-                    <stat.icon className="w-6 h-6 text-white" />
+            <Card key={index} className="border-0 shadow-sm">
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-10 h-10 ${stat.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                    <stat.icon className="w-5 h-5 text-white" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    <p className="text-sm text-gray-600">{stat.title}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-lg font-bold truncate">{stat.value}</p>
+                    <p className="text-xs text-gray-600 truncate">{stat.title}</p>
                   </div>
                 </div>
               </CardContent>
@@ -135,34 +131,34 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Ações Rápidas</CardTitle>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2 pt-3 px-3">
+            <CardTitle className="text-sm">Ações Rápidas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <CardContent className="px-3 pb-3">
+            <div className="grid grid-cols-2 gap-2">
               <Link href="/admin/routes/create" className="w-full">
-                <Button className="w-full h-16 flex flex-col items-center justify-center space-y-1">
-                  <Plus className="w-5 h-5" />
-                  <span className="text-sm">Criar Rota</span>
+                <Button className="w-full h-12 flex flex-col items-center justify-center space-y-0.5 text-xs">
+                  <Plus className="w-4 h-4" />
+                  <span className="text-xs leading-tight">Criar Rota</span>
                 </Button>
               </Link>
               <Link href="/admin/users" className="w-full">
-                <Button variant="outline" className="w-full h-16 flex flex-col items-center justify-center space-y-1">
-                  <Users className="w-5 h-5" />
-                  <span className="text-sm">Gerenciar Usuários</span>
+                <Button variant="outline" className="w-full h-12 flex flex-col items-center justify-center space-y-0.5 text-xs">
+                  <Users className="w-4 h-4" />
+                  <span className="text-xs leading-tight">Utilizadores</span>
                 </Button>
               </Link>
               <Link href="/admin/routes" className="w-full">
-                <Button variant="outline" className="w-full h-16 flex flex-col items-center justify-center space-y-1">
-                  <Route className="w-5 h-5" />
-                  <span className="text-sm">Todas as Rotas</span>
+                <Button variant="outline" className="w-full h-12 flex flex-col items-center justify-center space-y-0.5 text-xs">
+                  <Route className="w-4 h-4" />
+                  <span className="text-xs leading-tight">Todas Rotas</span>
                 </Button>
               </Link>
               <Link href="/admin/analytics" className="w-full">
-                <Button variant="outline" className="w-full h-16 flex flex-col items-center justify-center space-y-1">
-                  <BarChart3 className="w-5 h-5" />
-                  <span className="text-sm">Análises</span>
+                <Button variant="outline" className="w-full h-12 flex flex-col items-center justify-center space-y-0.5 text-xs">
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="text-xs leading-tight">Análises</span>
                 </Button>
               </Link>
             </div>
@@ -170,44 +166,42 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Recent Routes */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Rotas Recentes</CardTitle>
-            <CardDescription>Últimas rotas turísticas da plataforma</CardDescription>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2 pt-3 px-3">
+            <CardTitle className="text-sm">Rotas Recentes</CardTitle>
+            <CardDescription className="text-xs">Últimas rotas turísticas</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="px-3 pb-3 space-y-2">
             {recentRoutes.length > 0 ? (
               recentRoutes.map((route) => (
-                <div key={route.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-gray-50 rounded-lg space-y-2 sm:space-y-0">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-sm">{route.nome}</h4>
-                    <p className="text-xs text-gray-600">por {route.publisher.nome_completo}</p>
+                <div key={route.id} className="flex flex-col p-2 bg-gray-50 rounded-lg space-y-1 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-medium truncate flex-1">{route.nome}</h4>
+                    <Badge className="text-xs py-0 px-1.5" variant={route.status === "Ativo" ? "default" : "secondary"}>{route.status}</Badge>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-                    <Badge className="w-full sm:w-auto text-center" variant={route.status === "Ativo" ? "default" : "secondary"}>{route.status}</Badge>
-                    <div className="flex space-x-1 w-full sm:w-auto justify-end">
-                      <Link href={`/admin/routes/edit/${route.id}`}>
-                        <Button variant="ghost" size="sm" className="hover:text-green-600">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                      <Button variant="ghost" size="sm" className="hover:text-red-600" onClick={() => console.log("Delete route", route.id)}>
-                        <Trash2 className="w-4 h-4" />
+                  <p className="text-gray-600 truncate text-xs">por {route.publisher.nome_completo}</p>
+                  <div className="flex space-x-1 pt-1">
+                    <Link href={`/admin/routes/edit/${route.id}`}>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:text-green-600">
+                        <Edit className="w-3 h-3" />
                       </Button>
-                    </div>
+                    </Link>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:text-red-600" onClick={() => console.log("Delete route", route.id)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-gray-500 text-center py-4">Nenhuma rota recente encontrada.</p>
+              <p className="text-xs text-gray-500 text-center py-2">Nenhuma rota recente.</p>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
-        <div className="grid grid-cols-4 py-2">
+      {/* Bottom Navigation - Mobile Only */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t w-full md:hidden">
+        <div className="grid grid-cols-4 py-2 w-full">
           <Link href="/admin/dashboard" className="flex flex-col items-center py-2 text-green-600">
             <BarChart3 className="w-5 h-5" />
             <span className="text-xs mt-1">Painel</span>
