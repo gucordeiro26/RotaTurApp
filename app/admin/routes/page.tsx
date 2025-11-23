@@ -57,7 +57,7 @@ export default function RouteManagement() {
         .order('criado_em', { ascending: false })
 
       if (error) throw error
-      
+
       // Mapeamento seguro dos dados
       const formattedRoutes = (data || []).map((r: any) => ({
         ...r,
@@ -76,20 +76,20 @@ export default function RouteManagement() {
   const handleUpdateStatus = async (id: number, newStatus: string) => {
     setProcessingId(id)
     try {
-        const { error } = await supabase
-            .from('rotas')
-            .update({ status: newStatus })
-            .eq('id', id)
+      const { error } = await supabase
+        .from('rotas')
+        .update({ status: newStatus })
+        .eq('id', id)
 
-        if (error) throw error
+      if (error) throw error
 
-        // Atualiza a lista localmente para feedback imediato
-        setRoutes(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r))
+      // Atualiza a lista localmente para feedback imediato
+      setRoutes(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r))
     } catch (error) {
-        console.error("Erro ao atualizar status:", error)
-        alert("Erro ao atualizar status da rota.")
+      console.error("Erro ao atualizar status:", error)
+      alert("Erro ao atualizar status da rota.")
     } finally {
-        setProcessingId(null)
+      setProcessingId(null)
     }
   }
 
@@ -111,107 +111,107 @@ export default function RouteManagement() {
   return (
     <RouteGuard allowedRoles={["admin"]}>
       <div className="flex flex-col h-screen bg-gray-50 w-full">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-40 flex-shrink-0">
-        <div className="px-3 py-2 flex items-center justify-between w-full">
-          <h1 className="text-base font-semibold truncate">Gerir Rotas</h1>
-          <div className="flex gap-2 flex-shrink-0">
-            <Link href="/admin/routes/create">
-              <Button size="sm" className="h-8 px-2 text-xs">
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                <span className="hidden sm:inline">Nova</span>
-              </Button>
-            </Link>
-            <Link href="/admin/dashboard" className="flex-shrink-0">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b sticky top-0 z-40 flex-shrink-0">
+          <div className="px-3 py-2 flex items-center justify-between w-full">
+            <h1 className="text-base font-semibold truncate">Gerir Rotas</h1>
+            <div className="flex gap-2 flex-shrink-0">
+              <Link href="/admin/routes/create">
+                <Button size="sm" className="h-8 px-2 text-xs">
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span className="hidden sm:inline">Nova</span>
+                </Button>
+              </Link>
+              <Link href="/admin/dashboard" className="flex-shrink-0">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 pb-20 w-full">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-          <Input
-            placeholder="Buscar..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8 h-8 text-xs rounded-lg"
-          />
-        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 pb-20 w-full">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+            <Input
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 h-8 text-xs rounded-lg"
+            />
+          </div>
 
-        {/* Routes List */}
-        <div className="space-y-2">
-          {filteredRoutes.map((route) => (
-            <Card key={route.id} className="border-0 shadow-sm">
-              <CardContent className="p-2">
-                <div className="flex flex-col space-y-1">
-                  {/* Title and Actions */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium truncate">{route.nome}</h3>
-                      <p className="text-xs text-gray-600 truncate">{route.publicador?.nome_completo || 'Desconhecido'}</p>
+          {/* Routes List */}
+          <div className="space-y-2">
+            {filteredRoutes.map((route) => (
+              <Card key={route.id} className="border-0 shadow-sm">
+                <CardContent className="p-2">
+                  <div className="flex flex-col space-y-1">
+                    {/* Title and Actions */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-medium truncate">{route.nome}</h3>
+                        <p className="text-xs text-gray-600 truncate">{route.publicador?.nome_completo || 'Desconhecido'}</p>
+                      </div>
+                      <Badge className="flex-shrink-0 text-xs py-0 px-1.5" variant={route.status === "Ativo" ? "default" : "secondary"}>
+                        {route.status}
+                      </Badge>
                     </div>
-                    <Badge className="flex-shrink-0 text-xs py-0 px-1.5" variant={route.status === "Ativo" ? "default" : "secondary"}>
-                      {route.status}
-                    </Badge>
-                  </div>
 
-                  {/* Meta Info */}
-                  <div className="flex gap-2 text-xs text-gray-500">
-                    {route.duracao && <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{route.duracao}</span>}
-                    {route.dificuldade && <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3" />{route.dificuldade}</span>}
-                  </div>
+                    {/* Meta Info */}
+                    <div className="flex gap-2 text-xs text-gray-500">
+                      {route.duracao && <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{route.duracao}</span>}
+                      {route.dificuldade && <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3" />{route.dificuldade}</span>}
+                    </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-1 pt-1">
-                    <Link href={`/route-details/${route.id}`} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full h-6 text-xs">
-                        <Eye className="w-3 h-3 mr-1" />
-                        Ver
-                      </Button>
-                    </Link>
-                    
-                    {route.status !== "Ativo" && (
-                      <Button 
-                        size="sm" 
-                        disabled={processingId === route.id}
-                        onClick={() => handleUpdateStatus(route.id, "Ativo")} 
-                        className="h-6 text-xs flex-shrink-0"
-                      >
-                        {processingId === route.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
-                      </Button>
-                    )}
-                    
-                    {route.status !== "Suspenso" && (
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        disabled={processingId === route.id}
-                        onClick={() => handleUpdateStatus(route.id, "Suspenso")} 
-                        className="h-6 text-xs flex-shrink-0"
-                      >
-                        {processingId === route.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    {/* Actions */}
+                    <div className="flex gap-1 pt-1">
+                      <Link href={`/route-details/${route.id}`} className="flex-1">
+                        <Button variant="outline" size="sm" className="w-full h-6 text-xs">
+                          <Eye className="w-3 h-3 mr-1" />
+                          Ver
+                        </Button>
+                      </Link>
 
-          {filteredRoutes.length === 0 && (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-gray-500">Nenhuma rota encontrada.</p>
-              </CardContent>
-            </Card>
-          )}
+                      {route.status !== "Ativo" && (
+                        <Button
+                          size="sm"
+                          disabled={processingId === route.id}
+                          onClick={() => handleUpdateStatus(route.id, "Ativo")}
+                          className="h-6 text-xs flex-shrink-0"
+                        >
+                          {processingId === route.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                        </Button>
+                      )}
+
+                      {route.status !== "Suspenso" && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={processingId === route.id}
+                          onClick={() => handleUpdateStatus(route.id, "Suspenso")}
+                          className="h-6 text-xs flex-shrink-0"
+                        >
+                          {processingId === route.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {filteredRoutes.length === 0 && (
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs text-gray-500">Nenhuma rota encontrada.</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
-      </div>
       </div>
     </RouteGuard>
   )
