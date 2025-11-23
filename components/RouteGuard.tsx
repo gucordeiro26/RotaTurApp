@@ -12,14 +12,20 @@ type RouteGuardProps = {
 export function RouteGuard({ children, allowedRoles }: RouteGuardProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
+  const [isAllowed, setIsAllowed] = useState(false)
 
   useEffect(() => {
+    let isMounted = true
+
     const checkAuth = async () => {
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
         if (sessionError || !session) {
-          router.replace('/')
+          if (isMounted) {
+            setIsLoading(false)
+            setIsAllowed(false)
+          }
           return
         }
 
@@ -29,8 +35,11 @@ export function RouteGuard({ children, allowedRoles }: RouteGuardProps) {
           .eq('id', session.user.id)
           .single()
 
+        if (!isMounted) return
+
         if (profileError || !profileData) {
-          router.replace('/')
+          setIsLoading(false)
+          setIsAllowed(false)
           return
         }
 
@@ -47,13 +56,22 @@ export function RouteGuard({ children, allowedRoles }: RouteGuardProps) {
           return
         }
 
+        setIsAllowed(true)
         setIsLoading(false)
       } catch (error) {
-        router.replace('/')
+        console.error("Erro ao verificar autenticação:", error)
+        if (isMounted) {
+          setIsLoading(false)
+          setIsAllowed(false)
+        }
       }
     }
 
     checkAuth()
+
+    return () => {
+      isMounted = false
+    }
   }, [router, allowedRoles])
 
   if (isLoading) {
@@ -65,6 +83,10 @@ export function RouteGuard({ children, allowedRoles }: RouteGuardProps) {
         </div>
       </div>
     )
+  }
+
+  if (!isAllowed) {
+    return null
   }
 
   return <>{children}</>

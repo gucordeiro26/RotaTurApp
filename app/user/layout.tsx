@@ -39,10 +39,12 @@ export default function UserLayout({
     const router = useRouter();
 
     useEffect(() => {
-        if (!isLoading && !user) {
-            router.push('/');
+        if (!isLoading) {
+            if (!user || profile?.tipo_perfil !== 'usuario') {
+                router.replace('/');
+            }
         }
-    }, [user, isLoading, router]);
+    }, [user, profile, isLoading, router]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -53,7 +55,7 @@ export default function UserLayout({
         return <FullScreenLoader />;
     }
 
-    if (user && profile) {
+    if (user && profile && profile.tipo_perfil === 'usuario') {
         return (
             <SidebarProvider>
                 <div className="flex h-screen">

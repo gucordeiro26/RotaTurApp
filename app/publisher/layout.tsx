@@ -41,7 +41,7 @@ export default function PublisherLayout({
         if (!isLoading) {
             const isAllowed = profile?.tipo_perfil === 'publicador' || profile?.tipo_perfil === 'admin';
             if (!user || !isAllowed) {
-                router.push('/');
+                router.replace('/');
             }
         }
     }, [user, profile, isLoading, router]);

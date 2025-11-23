@@ -26,41 +26,80 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
+
     const getSessionAndProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!isMounted) return
+        
+        setSession(session)
+        setUser(session?.user ?? null)
 
-      if (session?.user) {
-        const { data: profileData, error } = await supabase
-          .from('perfis')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
+        if (session?.user) {
+          const { data: profileData, error } = await supabase
+            .from('perfis')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
 
-        if (error) {
-          console.error("Erro ao buscar perfil:", error)
+          if (!isMounted) return
+
+          if (error) {
+            console.error("Erro ao buscar perfil:", error)
+            setProfile(null)
+          } else {
+            setProfile(profileData)
+          }
         } else {
-          setProfile(profileData)
+          setProfile(null)
+        }
+      } catch (error) {
+        console.error("Erro ao obter sessão:", error)
+        if (isMounted) {
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
         }
       }
-      setIsLoading(false)
     }
 
     getSessionAndProfile()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        if (!isMounted) return
+        
         setSession(session)
         setUser(session?.user ?? null)
 
         if (session?.user) {
-          const { data: profileData } = await supabase
-            .from('perfis')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          setProfile(profileData)
+          try {
+            const { data: profileData, error } = await supabase
+              .from('perfis')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+            
+            if (!isMounted) return
+            
+            if (error) {
+              console.error("Erro ao buscar perfil:", error)
+              setProfile(null)
+            } else {
+              setProfile(profileData)
+            }
+          } catch (error) {
+            console.error("Erro ao buscar perfil no listener:", error)
+            if (isMounted) {
+              setProfile(null)
+            }
+          }
         } else {
           setProfile(null)
         }
@@ -68,6 +107,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     )
 
     return () => {
+      isMounted = false
       authListener.subscription.unsubscribe()
     }
   }, [])
