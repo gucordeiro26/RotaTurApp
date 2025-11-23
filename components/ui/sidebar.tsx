@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { VariantProps, cva } from 'class-variance-authority'
-import { PanelLeft, Home, Map, BarChart3, LogOut, Star, UserCircle, Users } from 'lucide-react' // MessageSquare removido
+import { PanelLeft, Home, Map, BarChart3, LogOut, Star, UserCircle, Users } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -170,13 +170,11 @@ const Sidebar = React.forwardRef<
         { href: "/user/dashboard", label: "Início", icon: Home },
         { href: "/user/routes", label: "Explorar Rotas", icon: Map },
         { href: "/user/favorites", label: "Favoritos", icon: Star },
-        { href: "/user/profile", label: "Meu Perfil", icon: UserCircle },
     ];
 
     const publisherLinks = [
         { href: "/publisher/dashboard", label: "Painel Publicador", icon: BarChart3 },
         { href: "/publisher/routes", label: "Minhas Rotas", icon: Map },
-        // Link de Mensagens REMOVIDO
     ];
 
     const adminLinks = [
@@ -185,14 +183,19 @@ const Sidebar = React.forwardRef<
         { href: "/admin/users", label: "Gerir Utilizadores", icon: Users },
     ];
 
-    let navLinks = [...touristLinks];
+    // Hierarquia de permissões com acumulação
+    let navLinks = [...touristLinks]; // Base: sempre começa com links de turista
 
     if (userProfile.tipo_perfil === 'publicador') {
-        navLinks = [...publisherLinks, ...touristLinks];
+        // Publicador: turista + publicador
+        navLinks = [...touristLinks, ...publisherLinks];
+    } else if (userProfile.tipo_perfil === 'admin') {
+        // Admin: turista + publicador + admin
+        navLinks = [...touristLinks, ...publisherLinks, ...adminLinks];
     }
-    else if (userProfile.tipo_perfil === 'admin') {
-        navLinks = [...adminLinks, ...touristLinks];
-    }
+
+    // Sempre adiciona "Meu Perfil" ao final
+    navLinks.push({ href: "/profile", label: "Meu Perfil", icon: UserCircle });
 
     const isActive = (path: string) => pathname === path;
 
@@ -214,11 +217,11 @@ const Sidebar = React.forwardRef<
 
           <SidebarContent>
               <SidebarMenu>
-                  {navLinks.map((link) => (
-                      <SidebarMenuItem key={link.href}>
-                          <Link href={link.href} passHref legacyBehavior>
-                              <SidebarMenuButton asChild isActive={isActive(link.href)} tooltip={link.label}>
-                                  <a><link.icon /><span>{link.label}</span></a>
+                  {navLinks.map((item) => (
+                      <SidebarMenuItem key={item.href}>
+                          <Link href={item.href} passHref legacyBehavior>
+                              <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.label}>
+                                  <a><item.icon /><span>{item.label}</span></a>
                               </SidebarMenuButton>
                           </Link>
                       </SidebarMenuItem>

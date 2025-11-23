@@ -28,7 +28,7 @@ export default function PublisherDashboard() {
                 .from('rotas')
                 .select('id, nome')
                 .eq('publicador_id', user.id)
-                .order('created_at', { ascending: false }); // ou 'criado_em'
+                .order('criado_em', { ascending: false }); // ou 'criado_em'
 
             if (rotasError) {
                 console.error("Erro ao buscar rotas:", rotasError);
@@ -54,7 +54,7 @@ export default function PublisherDashboard() {
     }
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 pb-20">
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold">Dashboard</h1>
                 <Link href="/publisher/routes/create">

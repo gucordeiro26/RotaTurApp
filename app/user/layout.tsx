@@ -1,23 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser, type Profile } from "@/app/contexts/UserContext";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
 import {
     Sidebar,
     SidebarProvider,
-    SidebarHeader,
-    SidebarContent,
-    SidebarFooter,
-    SidebarMenu,
-    SidebarMenuItem,
-    SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { LogOut, Map, Home, Star, UserCircle } from "lucide-react";
 
 function FullScreenLoader() {
     return (
@@ -37,16 +27,15 @@ export default function UserLayout({
 }) {
     const { user, profile, isLoading } = useUser();
     const router = useRouter();
-    const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
     useEffect(() => {
-        if (!isLoading && !hasCheckedAuth) {
-            if (!user || profile?.tipo_perfil !== 'usuario') {
+        if (!isLoading) {
+            // Se não há sessão, redireciona
+            if (!user) {
                 router.replace('/');
             }
-            setHasCheckedAuth(true);
         }
-    }, [user, profile, isLoading, hasCheckedAuth, router]);
+    }, [user, isLoading, router]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -57,65 +46,13 @@ export default function UserLayout({
         return <FullScreenLoader />;
     }
 
-    if (user && profile && profile.tipo_perfil === 'usuario') {
+    if (user && profile) {
+        // Com hierarquia, todos os perfis têm acesso às funcionalidades de turista
+        // usuario, publicador e admin podem ver/explorar rotas
         return (
             <SidebarProvider>
                 <div className="flex h-screen">
-                    <Sidebar userProfile={profile as Profile}>
-                        <SidebarHeader>
-                            <div className="flex items-center gap-2 p-2">
-                                <Avatar className="h-10 w-10">
-                                    <AvatarImage src={profile.url_avatar || undefined} />
-                                    <AvatarFallback>{profile.nome_completo?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-                                </Avatar>
-                                <div className="grid gap-0.5 text-sm">
-                                    <div className="font-semibold">{profile.nome_completo}</div>
-                                    <div className="text-muted-foreground capitalize">{profile.tipo_perfil}</div>
-                                </div>
-                            </div>
-                        </SidebarHeader>
-                        <SidebarContent>
-                            <SidebarMenu>
-                                <SidebarMenuItem>
-                                    <Link href="/user/dashboard" passHref legacyBehavior>
-                                        <SidebarMenuButton asChild>
-                                            <a><Home /><span>Início</span></a>
-                                        </SidebarMenuButton>
-                                    </Link>
-                                </SidebarMenuItem>
-                                <SidebarMenuItem>
-                                    <Link href="/user/routes" passHref legacyBehavior>
-                                        <SidebarMenuButton asChild>
-                                            <a><Map /><span>Explorar Rotas</span></a>
-                                        </SidebarMenuButton>
-                                    </Link>
-                                </SidebarMenuItem>
-                                <SidebarMenuItem>
-                                    <Link href="/user/favorites" passHref legacyBehavior>
-                                        <SidebarMenuButton asChild>
-                                            <a><Star /><span>Favoritos</span></a>
-                                        </SidebarMenuButton>
-                                    </Link>
-                                </SidebarMenuItem>
-                                <SidebarMenuItem>
-                                    <Link href="/user/profile" passHref legacyBehavior>
-                                        <SidebarMenuButton asChild>
-                                            <a><UserCircle /><span>Meu Perfil</span></a>
-                                        </SidebarMenuButton>
-                                    </Link>
-                                </SidebarMenuItem>
-                            </SidebarMenu>
-                        </SidebarContent>
-                        <SidebarFooter>
-                             <SidebarMenu>
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton onClick={handleLogout}>
-                                        <LogOut /><span>Sair</span>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            </SidebarMenu>
-                        </SidebarFooter>
-                    </Sidebar>
+                    <Sidebar userProfile={profile as Profile} />
                     <main className="flex-1 overflow-y-auto bg-muted/40">
                         {children}
                     </main>

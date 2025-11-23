@@ -32,7 +32,7 @@ type RotaCompleta = {
 export default function RouteDetailsPage() {
     const params = useParams();
     const router = useRouter();
-    const { user } = useUser();
+    const { user, profile } = useUser();
     const routeId = params.id as string;
 
     const [route, setRoute] = useState<RotaCompleta | null>(null);
@@ -99,7 +99,8 @@ export default function RouteDetailsPage() {
     const renderActionButton = () => {
         if (!route) return null;
 
-        if (user && user.id === route.publicador_id) {
+        // Se o usuário é publicador E é o autor da rota, mostra opção de editar
+        if (profile?.tipo_perfil === 'publicador' && user && user.id === route.publicador_id) {
             return (
                 <Link href={`/publisher/routes/edit/${route.id}`} passHref>
                     <Button className="w-full" size="lg">
@@ -109,6 +110,7 @@ export default function RouteDetailsPage() {
             );
         }
 
+        // Caso contrário (ou se for admin), mostra opção de abrir no mapa
         return (
             <Button className="w-full bg-blue-600 hover:bg-blue-700" size="lg" onClick={handleOpenInMaps}>
                 <MapPin className="mr-2 h-4 w-4" /> Abrir no Google Maps

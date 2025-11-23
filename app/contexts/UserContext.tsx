@@ -38,7 +38,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         console.error("Erro ao buscar perfil:", error)
         setProfile(null)
       } else {
-        setProfile(profileData)
+        // Forçar novo objeto para garantir re-render
+        setProfile({ ...profileData })
       }
     } catch (error) {
       console.error("Erro ao buscar perfil:", error)

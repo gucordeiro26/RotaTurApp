@@ -43,9 +43,24 @@ export function RouteGuard({ children, allowedRoles }: RouteGuardProps) {
           return
         }
 
-        // Verifica se o tipo de perfil do usuário está na lista de perfis permitidos
-        if (!allowedRoles.includes(profileData.tipo_perfil)) {
-          // Se não estiver, redireciona para a página apropriada baseado no tipo de perfil
+        // Com hierarquia acumulada:
+        // - 'usuario' pode acessar rotas permitidas para 'usuario'
+        // - 'publicador' pode acessar 'usuario' + 'publicador'
+        // - 'admin' pode acessar tudo
+        let hasAccess = false;
+
+        if (allowedRoles.includes(profileData.tipo_perfil)) {
+          hasAccess = true;
+        } else if (profileData.tipo_perfil === 'admin') {
+          // Admin tem acesso a tudo (hierarquia)
+          hasAccess = true;
+        } else if (profileData.tipo_perfil === 'publicador' && allowedRoles.includes('usuario')) {
+          // Publicador tem acesso a funcionalidades de usuário
+          hasAccess = true;
+        }
+
+        if (!hasAccess) {
+          // Se não tiver acesso, redireciona para a página apropriada baseado no tipo de perfil
           if (profileData.tipo_perfil === 'admin') {
             router.replace('/admin/dashboard')
           } else if (profileData.tipo_perfil === 'publicador') {

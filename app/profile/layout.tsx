@@ -14,13 +14,13 @@ function FullScreenLoader() {
         <div className="flex items-center justify-center h-screen bg-background">
             <div className="text-center">
                 <p className="text-lg font-semibold">A carregar...</p>
-                <p className="text-sm text-muted-foreground">A verificar as suas credenciais.</p>
+                <p className="text-sm text-muted-foreground">A verificar a sua sessão.</p>
             </div>
         </div>
     );
 }
 
-export default function PublisherLayout({
+export default function ProfileLayout({
     children,
 }: {
     children: React.ReactNode;
@@ -30,12 +30,12 @@ export default function PublisherLayout({
 
     useEffect(() => {
         if (!isLoading) {
-            const isAllowed = profile?.tipo_perfil === 'publicador' || profile?.tipo_perfil === 'admin';
-            if (!user || !isAllowed) {
+            // Se não há sessão, redireciona
+            if (!user) {
                 router.replace('/');
             }
         }
-    }, [user, profile?.tipo_perfil, isLoading, router]);
+    }, [user, isLoading, router]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -46,8 +46,9 @@ export default function PublisherLayout({
         return <FullScreenLoader />;
     }
 
-    const isAllowed = user && profile && (profile.tipo_perfil === 'publicador' || profile.tipo_perfil === 'admin');
-    if (isAllowed) {
+    if (user && profile) {
+        // Com hierarquia, todos os perfis têm acesso às funcionalidades de turista
+        // usuario, publicador e admin podem acessar o perfil
         return (
             <SidebarProvider>
                 <div className="flex h-screen">

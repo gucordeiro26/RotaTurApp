@@ -20,7 +20,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
-  ArrowLeft,
   Search,
   Plus,
   Eye,
@@ -28,13 +27,9 @@ import {
   Copy,
   Trash2,
   MoreVertical,
-  Users,
-  Calendar,
-  DollarSign,
-  Clock,
-  MapPin,
-  TrendingUp,
   AlertCircle,
+  Clock,
+  DollarSign,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
@@ -251,12 +246,7 @@ export default function PublisherRoutes() {
         <div className="bg-white shadow-sm border-b">
           <div className="px-4 py-3">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <Link href="/publisher/dashboard">
-                  <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /></Button>
-                </Link>
-                <h1 className="text-xl font-semibold">Minhas Rotas</h1>
-              </div>
+              <h1 className="text-xl font-semibold">Minhas Rotas</h1>
               <Link href="/publisher/routes/create">
                 <Button size="sm"><Plus className="w-4 h-4 mr-2" /> Nova Rota</Button>
               </Link>
@@ -305,38 +295,29 @@ export default function PublisherRoutes() {
           </Tabs>
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
-          <div className="grid grid-cols-4 py-2">
-            <Link href="/publisher/dashboard" className="flex flex-col items-center py-2 text-gray-600"><TrendingUp className="w-5 h-5" /><span className="text-xs mt-1">Painel</span></Link>
-            <Link href="/publisher/routes" className="flex flex-col items-center py-2 text-green-600"><MapPin className="w-5 h-5" /><span className="text-xs mt-1">Minhas Rotas</span></Link>
-            <Link href="/publisher/bookings" className="flex flex-col items-center py-2 text-gray-600"><Calendar className="w-5 h-5" /><span className="text-xs mt-1">Reservas</span></Link>
-            <Link href="/publisher/messages" className="flex flex-col items-center py-2 text-gray-600"><Users className="w-5 h-5" /><span className="text-xs mt-1">Mensagens</span></Link>
-          </div>
-        </div>
+        {/* --- Diálogo de Confirmação de Exclusão --- */}
+        <AlertDialog open={routeToDelete !== null} onOpenChange={() => setRouteToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center">
+                <AlertCircle className="w-5 h-5 mr-2 text-red-500" />
+                Tem certeza que deseja excluir esta rota?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. Isto irá excluir permanentemente a rota
+                <span className="font-bold"> "{routeToDelete?.nome}" </span>
+                e todos os seus dados associados.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteRoute}>
+                Sim, excluir rota
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
-
-      {/* --- Diálogo de Confirmação de Exclusão --- */}
-      <AlertDialog open={routeToDelete !== null} onOpenChange={() => setRouteToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center">
-              <AlertCircle className="w-5 h-5 mr-2 text-red-500" />
-              Tem certeza que deseja excluir esta rota?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Isto irá excluir permanentemente a rota
-              <span className="font-bold"> "{routeToDelete?.nome}" </span>
-              e todos os seus dados associados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteRoute}>
-              Sim, excluir rota
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }
