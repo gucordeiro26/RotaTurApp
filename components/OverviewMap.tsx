@@ -6,7 +6,6 @@ import 'leaflet-routing-machine/dist/leaflet-routing-machine.css'
 import L from 'leaflet'
 import { useEffect } from 'react'
 
-// --- FIX PARA ÍCONES (Igual ao MapEditor) ---
 const fixLeafletIcons = () => {
     if (typeof window !== 'undefined') {
         // @ts-ignore
@@ -20,10 +19,8 @@ const fixLeafletIcons = () => {
 };
 fixLeafletIcons();
 
-// --- Configuração dos Ícones ---
 const createIcon = (color: string) => {
     if (typeof window === 'undefined') return null;
-
     return new L.Icon({
         iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -90,7 +87,6 @@ const Routing = ({ pontoInicio, pontoFim, pontosInteresse }: OverviewMapProps) =
                 }
 
                 const icon = createIcon(iconColor);
-
                 if (!icon) return null;
 
                 return L.marker(wp.latLng, {
@@ -121,7 +117,7 @@ export default function OverviewMap({ pontoInicio, pontoFim, pontosInteresse }: 
             center={[center.lat, center.lng]}
             zoom={13}
             scrollWheelZoom={false}
-            style={{ height: '100%', width: '100%', zIndex: 0 }}
+            style={{ height: '100%', width: '100%' }}
         >
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

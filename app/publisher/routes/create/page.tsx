@@ -175,7 +175,7 @@ export default function CreateRoutePage() {
                             <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'interesse' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('interesse')}><Pin className="w-4 h-4 mr-2" /> Ponto (+)</Button>
                         </div>
 
-                        <div className="w-full h-[400px] rounded-md overflow-hidden border relative z-0">
+                        <div className="w-full h-[300px] sm:h-[400px] md:h-[500px] rounded-md overflow-hidden border relative z-0">
                             <MapEditor
                                 initialCenter={{ lat: -23.3557, lng: -47.8569 }}
                                 pontoInicio={pontoInicio}
