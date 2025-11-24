@@ -1,171 +1,241 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
+import dynamic from 'next/dynamic'
+import { supabase } from "@/lib/supabase"
+import { useUser } from "@/app/contexts/UserContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { ArrowLeft, MapPin, Camera, Plus, X, Map } from "lucide-react"
+import { ArrowLeft, Map, Save, Trash2, Pin, Play, Flag, Loader2, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
+import { Skeleton } from "@/components/ui/skeleton"
+import type { Ponto } from "@/components/MapEditor"
 
-export default function CreateRoute() {
-  const [waypoints, setWaypoints] = useState(["Ponto de Partida"])
-  const [images, setImages] = useState([])
-  const [isPaid, setIsPaid] = useState(false)
+type ModoEdicaoMapa = 'inicio' | 'fim' | 'interesse';
 
-  const addWaypoint = () => {
-    setWaypoints([...waypoints, `Ponto de Parada ${waypoints.length}`])
+export default function AdminCreateRoutePage() {
+  const router = useRouter();
+  const { user } = useUser();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Estados do formulário
+  const [nome, setNome] = useState("");
+  const [descricaoCurta, setDescricaoCurta] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [categoria, setCategoria] = useState("historia");
+  const [dificuldade, setDificuldade] = useState("Fácil");
+  const [duracao, setDuracao] = useState("");
+  const [maxParticipantes, setMaxParticipantes] = useState(0);
+  const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
+
+  // Estados do mapa
+  const [pontoInicio, setPontoInicio] = useState<Ponto | null>(null);
+  const [pontoFim, setPontoFim] = useState<Ponto | null>(null);
+  const [pontosDeInteresse, setPontosDeInteresse] = useState<Ponto[]>([]);
+  const [modoEdicaoMapa, setModoEdicaoMapa] = useState<ModoEdicaoMapa>('interesse');
+
+  const MapEditor = useMemo(() => dynamic(
+    () => import('@/components/MapEditor'),
+    {
+      loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
+      ssr: false
+    }
+  ), []);
+
+  const handleAddPonto = (ponto: Ponto) => {
+    if (modoEdicaoMapa === 'inicio') setPontoInicio(ponto);
+    else if (modoEdicaoMapa === 'fim') setPontoFim(ponto);
+    else setPontosDeInteresse(prev => [...prev, ponto]);
   }
 
-  const removeWaypoint = (index) => {
-    setWaypoints(waypoints.filter((_, i) => i !== index))
+  const handleRemovePontoInteresse = (index: number) => {
+    setPontosDeInteresse(prev => prev.filter((_, i) => i !== index));
   }
+
+  const uploadImagem = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+      const { error: uploadError } = await supabase.storage.from('rotas').upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('rotas').getPublicUrl(filePath);
+      return data.publicUrl;
+    } catch (error) {
+      console.error("Erro no upload:", error);
+      return null;
+    }
+  }
+
+  const handleSubmitRoute = async () => {
+    if (!user || !nome) {
+      setError("O nome da rota é obrigatório.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    let imagemUrl = null;
+    if (imagemArquivo) {
+      imagemUrl = await uploadImagem(imagemArquivo);
+      if (!imagemUrl) {
+        setError("Erro ao fazer upload da imagem. Tente novamente.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    const { data: newRoute, error: insertRouteError } = await supabase
+      .from('rotas')
+      .insert({
+        nome,
+        descricao_curta: descricaoCurta,
+        descricao,
+        categoria,
+        dificuldade,
+        duracao,
+        max_participantes: maxParticipantes,
+        publicador_id: user.id,
+        origem_coords: pontoInicio,
+        destino_coords: pontoFim,
+        status: 'Ativo',
+        imagem_url: imagemUrl
+      })
+      .select('id')
+      .single();
+
+    if (insertRouteError || !newRoute) {
+      setError(`Erro ao criar a rota: ${insertRouteError?.message}`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (pontosDeInteresse.length > 0) {
+      const pontosParaInserir = pontosDeInteresse.map(ponto => ({
+        rota_id: newRoute.id,
+        nome: ponto.nome || 'Ponto de Interesse',
+        coords: { lat: ponto.lat, lng: ponto.lng },
+      }));
+      await supabase.from('pontos_interesse').insert(pontosParaInserir);
+    }
+
+    alert("Rota criada com sucesso!");
+    router.push('/admin/routes');
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b flex-shrink-0 sticky top-0 z-10">
         <div className="px-4 py-3 flex items-center space-x-3">
-          <Link href="/admin/dashboard">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
+          <Link href="/admin/routes">
+            <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
           </Link>
-          <h1 className="text-xl font-semibold">Criar Nova Rota</h1>
+          <h1 className="text-lg sm:text-xl font-semibold truncate">Criar Nova Rota</h1>
         </div>
-      </div>
+      </header>
 
-      <div className="p-4 space-y-6 pb-20">
-        {/* Basic Information */}
+      <main className="flex-grow overflow-y-auto p-4 space-y-6 pb-24">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Informações Básicas</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Informações Gerais</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="routeName">Nome da Rota</Label>
-              <Input id="routeName" placeholder="Digite o nome da rota" />
+              <Label htmlFor="imagem">Imagem da Capa</Label>
+              <Input id="imagem" type="file" accept="image/*" onChange={(e) => setImagemArquivo(e.target.files?.[0] || null)} className="cursor-pointer" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrição</Label>
-              <Textarea id="description" placeholder="Descreva sua rota..." rows={3} />
+
+            <div className="space-y-2"><Label htmlFor="nome">Nome da Rota *</Label><Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="descricao_curta">Descrição Curta</Label><Input id="descricao_curta" value={descricaoCurta} onChange={(e) => setDescricaoCurta(e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="descricao">Descrição Completa</Label><Textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} /></div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2"><Label htmlFor="categoria">Categoria</Label><Select value={categoria} onValueChange={setCategoria}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="historia">História</SelectItem><SelectItem value="natureza">Natureza</SelectItem><SelectItem value="gastronomia">Gastronomia</SelectItem><SelectItem value="aventura">Aventura</SelectItem></SelectContent></Select></div>
+              <div className="space-y-2"><Label htmlFor="dificuldade">Dificuldade</Label><Select value={dificuldade} onValueChange={setDificuldade}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Fácil">Fácil</SelectItem><SelectItem value="Moderado">Moderado</SelectItem><SelectItem value="Difícil">Difícil</SelectItem></SelectContent></Select></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duração (horas)</Label>
-                <Input id="duration" type="number" placeholder="2" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="difficulty">Dificuldade</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="easy">Fácil</SelectItem>
-                    <SelectItem value="moderate">Moderado</SelectItem>
-                    <SelectItem value="hard">Difícil</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2"><Label htmlFor="duracao">Duração</Label><Input id="duracao" value={duracao} onChange={(e) => setDuracao(e.target.value)} placeholder="Ex: 2 horas" /></div>
+              <div className="space-y-2"><Label htmlFor="max_participantes">Máx. de Pessoas</Label><Input id="max_participantes" type="number" value={maxParticipantes} onChange={(e) => setMaxParticipantes(parseInt(e.target.value) || 0)} /></div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Route Planning */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center space-x-2">
-              <Map className="w-5 h-5" />
-              <span>Planejamento da Rota</span>
-            </CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-lg flex items-center"><Map className="w-5 h-5 mr-2" /> Editor de Rota no Mapa</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-3">
-              {waypoints.map((waypoint, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    {index + 1}
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
+              <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'inicio' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('inicio')}><Play className="w-4 h-4 mr-2" /> Início</Button>
+              <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'fim' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('fim')}><Flag className="w-4 h-4 mr-2" /> Fim</Button>
+              <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'interesse' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('interesse')}><Pin className="w-4 h-4 mr-2" /> Ponto (+)</Button>
+            </div>
+
+            {/* Container do mapa com z-index ajustado */}
+            <div className="w-full h-[400px] rounded-md overflow-hidden border relative z-0">
+              <MapEditor
+                initialCenter={{ lat: -23.3557, lng: -47.8569 }}
+                pontoInicio={pontoInicio}
+                pontoFim={pontoFim}
+                pontosInteresse={pontosDeInteresse}
+                onAddPonto={handleAddPonto}
+              />
+            </div>
+
+            {/* Lista de pontos ajustada para mobile */}
+            <div className="space-y-2">
+              {pontoInicio && (
+                <div className="flex items-center justify-between p-2 bg-green-50 rounded-md text-sm">
+                  <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                    <Play className="h-4 w-4 text-green-700 flex-shrink-0" />
+                    <span className="font-medium text-green-800 truncate">{pontoInicio.nome || 'Ponto de Início'}</span>
                   </div>
-                  <Input
-                    value={waypoint}
-                    onChange={(e) => {
-                      const newWaypoints = [...waypoints]
-                      newWaypoints[index] = e.target.value
-                      setWaypoints(newWaypoints)
-                    }}
-                    className="flex-1"
-                  />
-                  {index > 0 && (
-                    <Button variant="ghost" size="sm" onClick={() => removeWaypoint(index)}>
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
+                  <Button variant="ghost" size="sm" className="flex-shrink-0 ml-2" onClick={() => setPontoInicio(null)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              )}
+              {pontoFim && (
+                <div className="flex items-center justify-between p-2 bg-red-50 rounded-md text-sm">
+                  <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                    <Flag className="h-4 w-4 text-red-700 flex-shrink-0" />
+                    <span className="font-medium text-red-800 truncate">{pontoFim.nome || 'Ponto Final'}</span>
+                  </div>
+                  <Button variant="ghost" size="sm" className="flex-shrink-0 ml-2" onClick={() => setPontoFim(null)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              )}
+              {pontosDeInteresse.map((ponto, index) => (
+                <div key={index} className="flex items-center justify-between p-2 bg-gray-100 rounded-md text-sm">
+                  <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                    <Pin className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                    <span className="truncate">{ponto.nome || `Ponto #${index + 1}`}</span>
+                  </div>
+                  <Button variant="ghost" size="sm" className="flex-shrink-0 ml-2" onClick={() => handleRemovePontoInteresse(index)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
                 </div>
               ))}
             </div>
-            <Button variant="outline" onClick={addWaypoint} className="w-full">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Ponto de Parada
-            </Button>
-            <div className="bg-gray-100 rounded-lg p-4 text-center">
-              <MapPin className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600">Mapa interativo será exibido aqui</p>
-              <p className="text-xs text-gray-500">Toque para adicionar pontos no mapa</p>
-            </div>
           </CardContent>
         </Card>
+        {error && <p className="text-sm font-medium text-red-500 p-4 bg-red-100 rounded-md">{error}</p>}
+      </main>
 
-        {/* Pricing & Capacity */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Preços e Capacidade</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="paid-route">Rota Paga</Label>
-              <Switch id="paid-route" checked={isPaid} onCheckedChange={setIsPaid} />
-            </div>
-            {isPaid && (
-              <div className="space-y-2">
-                <Label htmlFor="price">Preço por pessoa (R$)</Label>
-                <Input id="price" type="number" placeholder="25.00" />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="maxParticipants">Máximo de Participantes</Label>
-              <Input id="maxParticipants" type="number" placeholder="20" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Media */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Fotos e Mídia</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              <Camera className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600 mb-2">Adicione fotos da sua rota</p>
-              <Button variant="outline" size="sm">
-                Escolher Fotos
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Action Buttons */}
-        <div className="flex space-x-3">
-          <Button variant="outline" className="flex-1">
-            Salvar como Rascunho
+      <footer className="bg-white border-t p-4 flex-shrink-0">
+        <div className="flex justify-end space-x-3">
+          <Button variant="outline" disabled={isSubmitting} onClick={() => router.back()}>Cancelar</Button>
+          <Button onClick={handleSubmitRoute} disabled={isSubmitting}>
+            {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> A guardar...</> : <><Save className="w-4 h-4 mr-2" /> Guardar Rota</>}
           </Button>
-          <Button className="flex-1 bg-blue-600 hover:bg-blue-700">Publicar Rota</Button>
         </div>
-      </div>
+      </footer>
     </div>
   )
 }

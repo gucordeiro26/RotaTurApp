@@ -42,7 +42,7 @@ export default function UserRoutesPage() {
         .from('rotas')
         .select('*')
         .eq('status', 'Ativo')
-        .order('created_at', { ascending: false })
+        .order('criado_em', { ascending: false })
 
       if (rotasData) setRotas(rotasData as Rota[])
 
