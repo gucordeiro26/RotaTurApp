@@ -32,7 +32,7 @@ interface RouteData {
     url_avatar: string
   } | null
   status: string
-  created_at: string
+  criado_em: string
 }
 
 export default function RouteManagement() {
@@ -53,7 +53,7 @@ export default function RouteManagement() {
           *,
           publicador:publicador_id ( nome_completo, url_avatar )
         `)
-        .order('created_at', { ascending: false })
+        .order('criado_em', { ascending: false })
 
       if (error) throw error
       

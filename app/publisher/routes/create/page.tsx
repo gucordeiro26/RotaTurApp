@@ -24,8 +24,7 @@ export default function CreateRoutePage() {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    
-    // Estados do formulário
+
     const [nome, setNome] = useState("");
     const [descricaoCurta, setDescricaoCurta] = useState("");
     const [descricao, setDescricao] = useState("");
@@ -33,10 +32,8 @@ export default function CreateRoutePage() {
     const [dificuldade, setDificuldade] = useState("Fácil");
     const [duracao, setDuracao] = useState("");
     const [maxParticipantes, setMaxParticipantes] = useState(0);
-    // --- NOVO ESTADO PARA IMAGEM ---
     const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
 
-    // Estados do mapa
     const [pontoInicio, setPontoInicio] = useState<Ponto | null>(null);
     const [pontoFim, setPontoFim] = useState<Ponto | null>(null);
     const [pontosDeInteresse, setPontosDeInteresse] = useState<Ponto[]>([]);
@@ -60,21 +57,13 @@ export default function CreateRoutePage() {
         setPontosDeInteresse(prev => prev.filter((_, i) => i !== index));
     }
 
-    // Função auxiliar para upload de imagem
     const uploadImagem = async (file: File): Promise<string | null> => {
         try {
             const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random()}.${fileExt}`; // Nome único simples
+            const fileName = `${Math.random()}.${fileExt}`;
             const filePath = `${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('rotas')
-                .upload(filePath, file);
-
-            if (uploadError) {
-                throw uploadError;
-            }
-
+            const { error: uploadError } = await supabase.storage.from('rotas').upload(filePath, file);
+            if (uploadError) throw uploadError;
             const { data } = supabase.storage.from('rotas').getPublicUrl(filePath);
             return data.publicUrl;
         } catch (error) {
@@ -93,8 +82,6 @@ export default function CreateRoutePage() {
         setError(null);
 
         let imagemUrl = null;
-
-        // 1. Faz o upload da imagem se existir
         if (imagemArquivo) {
             imagemUrl = await uploadImagem(imagemArquivo);
             if (!imagemUrl) {
@@ -104,7 +91,6 @@ export default function CreateRoutePage() {
             }
         }
 
-        // 2. Insere a rota no banco
         const { data: newRoute, error: insertRouteError } = await supabase
             .from('rotas')
             .insert({
@@ -119,7 +105,7 @@ export default function CreateRoutePage() {
                 origem_coords: pontoInicio,
                 destino_coords: pontoFim,
                 status: 'Rascunho',
-                imagem_url: imagemUrl // Salva a URL da imagem
+                imagem_url: imagemUrl
             })
             .select('id')
             .single();
@@ -130,21 +116,13 @@ export default function CreateRoutePage() {
             return;
         }
 
-        // 3. Insere pontos de interesse
         if (pontosDeInteresse.length > 0) {
             const pontosParaInserir = pontosDeInteresse.map(ponto => ({
                 rota_id: newRoute.id,
                 nome: ponto.nome || 'Ponto de Interesse',
                 coords: { lat: ponto.lat, lng: ponto.lng },
             }));
-
-            const { error: insertPontosError } = await supabase
-                .from('pontos_interesse')
-                .insert(pontosParaInserir);
-
-            if (insertPontosError) {
-                alert(`Rota criada, mas houve erro nos pontos de interesse.`);
-            }
+            await supabase.from('pontos_interesse').insert(pontosParaInserir);
         }
 
         alert("Rota criada com sucesso!");
@@ -152,58 +130,52 @@ export default function CreateRoutePage() {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50">
-            <header className="bg-white shadow-sm border-b flex-shrink-0">
-                <div className="px-4 py-3 flex items-center space-x-3">
+        <div className="flex flex-col min-h-screen bg-gray-50">
+            <header className="bg-white shadow-sm border-b flex-shrink-0 sticky top-0 z-10">
+                <div className="px-4 py-3 flex items-center space-x-3 max-w-7xl mx-auto w-full">
                     <Link href="/publisher/routes">
                         <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
                     </Link>
-                    <h1 className="text-xl font-semibold">Criar Nova Rota</h1>
+                    <h1 className="text-lg sm:text-xl font-semibold truncate">Criar Nova Rota</h1>
                 </div>
             </header>
 
-            <main className="flex-grow overflow-y-auto p-4 space-y-6">
+            <main className="flex-grow overflow-y-auto p-4 space-y-6 pb-24 w-full max-w-7xl mx-auto">
                 <Card>
                     <CardHeader><CardTitle>Informações Gerais</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
-                         {/* --- NOVO CAMPO DE IMAGEM --- */}
-                         <div className="space-y-2">
+                        <div className="space-y-2">
                             <Label htmlFor="imagem">Imagem da Capa</Label>
-                            <div className="flex items-center gap-4">
-                                <Input 
-                                    id="imagem" 
-                                    type="file" 
-                                    accept="image/*"
-                                    onChange={(e) => setImagemArquivo(e.target.files?.[0] || null)}
-                                    className="cursor-pointer"
-                                />
-                                {imagemArquivo && <span className="text-sm text-green-600 flex items-center"><ImageIcon className="w-4 h-4 mr-1"/> Selecionada</span>}
-                            </div>
-                         </div>
+                            <Input id="imagem" type="file" accept="image/*" onChange={(e) => setImagemArquivo(e.target.files?.[0] || null)} className="cursor-pointer" />
+                        </div>
 
-                         <div className="space-y-2"><Label htmlFor="nome">Nome da Rota *</Label><Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
-                         <div className="space-y-2"><Label htmlFor="descricao_curta">Descrição Curta</Label><Input id="descricao_curta" value={descricaoCurta} onChange={(e) => setDescricaoCurta(e.target.value)} /></div>
-                         <div className="space-y-2"><Label htmlFor="descricao">Descrição Completa</Label><Textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} /></div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                           <div className="space-y-2"><Label htmlFor="categoria">Categoria</Label><Select value={categoria} onValueChange={setCategoria}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="historia">História</SelectItem><SelectItem value="natureza">Natureza</SelectItem><SelectItem value="gastronomia">Gastronomia</SelectItem><SelectItem value="aventura">Aventura</SelectItem></SelectContent></Select></div>
-                           <div className="space-y-2"><Label htmlFor="dificuldade">Dificuldade</Label><Select value={dificuldade} onValueChange={setDificuldade}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Fácil">Fácil</SelectItem><SelectItem value="Moderado">Moderado</SelectItem><SelectItem value="Difícil">Difícil</SelectItem></SelectContent></Select></div>
-                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                           <div className="space-y-2"><Label htmlFor="duracao">Duração</Label><Input id="duracao" value={duracao} onChange={(e) => setDuracao(e.target.value)} placeholder="Ex: 2 horas"/></div>
-                           <div className="space-y-2"><Label htmlFor="max_participantes">Máx. de Pessoas</Label><Input id="max_participantes" type="number" value={maxParticipantes} onChange={(e) => setMaxParticipantes(parseInt(e.target.value) || 0)} /></div>
-                         </div>
+                        <div className="space-y-2"><Label htmlFor="nome">Nome da Rota *</Label><Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
+                        <div className="space-y-2"><Label htmlFor="descricao_curta">Descrição Curta</Label><Input id="descricao_curta" value={descricaoCurta} onChange={(e) => setDescricaoCurta(e.target.value)} /></div>
+                        <div className="space-y-2"><Label htmlFor="descricao">Descrição Completa</Label><Textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} /></div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2"><Label htmlFor="categoria">Categoria</Label><Select value={categoria} onValueChange={setCategoria}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="historia">História</SelectItem><SelectItem value="natureza">Natureza</SelectItem><SelectItem value="gastronomia">Gastronomia</SelectItem><SelectItem value="aventura">Aventura</SelectItem></SelectContent></Select></div>
+                            <div className="space-y-2"><Label htmlFor="dificuldade">Dificuldade</Label><Select value={dificuldade} onValueChange={setDificuldade}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Fácil">Fácil</SelectItem><SelectItem value="Moderado">Moderado</SelectItem><SelectItem value="Difícil">Difícil</SelectItem></SelectContent></Select></div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2"><Label htmlFor="duracao">Duração</Label><Input id="duracao" value={duracao} onChange={(e) => setDuracao(e.target.value)} placeholder="Ex: 2 horas" /></div>
+                            <div className="space-y-2"><Label htmlFor="max_participantes">Máx. de Pessoas</Label><Input id="max_participantes" type="number" value={maxParticipantes} onChange={(e) => setMaxParticipantes(parseInt(e.target.value) || 0)} /></div>
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader><CardTitle className="text-lg flex items-center"><Map className="w-5 h-5 mr-2" /> Editor de Rota no Mapa</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex flex-wrap gap-2">
-                            <Button variant={modoEdicaoMapa === 'inicio' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('inicio')}><Play className="w-4 h-4 mr-2" /> Definir Início</Button>
-                            <Button variant={modoEdicaoMapa === 'fim' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('fim')}><Flag className="w-4 h-4 mr-2" /> Definir Fim</Button>
-                            <Button variant={modoEdicaoMapa === 'interesse' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('interesse')}><Pin className="w-4 h-4 mr-2" /> Adicionar Ponto</Button>
+                        {/* CORREÇÃO: Botões empilhados no mobile */}
+                        <div className="flex flex-col sm:flex-row gap-2 w-full">
+                            <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'inicio' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('inicio')}><Play className="w-4 h-4 mr-2" /> Início</Button>
+                            <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'fim' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('fim')}><Flag className="w-4 h-4 mr-2" /> Fim</Button>
+                            <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'interesse' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('interesse')}><Pin className="w-4 h-4 mr-2" /> Ponto (+)</Button>
                         </div>
-                        <div className="w-full h-[400px] rounded-md overflow-hidden border">
+
+                        <div className="w-full h-[400px] rounded-md overflow-hidden border relative z-0">
                             <MapEditor
                                 initialCenter={{ lat: -23.3557, lng: -47.8569 }}
                                 pontoInicio={pontoInicio}
@@ -212,6 +184,7 @@ export default function CreateRoutePage() {
                                 onAddPonto={handleAddPonto}
                             />
                         </div>
+
                         <div className="space-y-2">
                             {pontoInicio && (<div className="flex items-center justify-between p-2 bg-green-50 rounded-md text-sm"><div className="flex items-center gap-2 min-w-0"><Play className="h-4 w-4 text-green-700 flex-shrink-0" /><span className="font-medium text-green-800 truncate">{pontoInicio.nome || 'Ponto de Início'}</span></div><Button variant="ghost" size="sm" onClick={() => setPontoInicio(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>)}
                             {pontoFim && (<div className="flex items-center justify-between p-2 bg-red-50 rounded-md text-sm"><div className="flex items-center gap-2 min-w-0"><Flag className="h-4 w-4 text-red-700 flex-shrink-0" /><span className="font-medium text-red-800 truncate">{pontoFim.nome || 'Ponto Final'}</span></div><Button variant="ghost" size="sm" onClick={() => setPontoFim(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>)}
@@ -223,7 +196,7 @@ export default function CreateRoutePage() {
             </main>
 
             <footer className="bg-white border-t p-4 flex-shrink-0">
-                <div className="flex justify-end space-x-3">
+                <div className="flex justify-end space-x-3 max-w-7xl mx-auto w-full">
                     <Button variant="outline" disabled={isSubmitting} onClick={() => router.back()}>Cancelar</Button>
                     <Button onClick={handleSubmitRoute} disabled={isSubmitting}>
                         {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> A guardar...</> : <><Save className="w-4 h-4 mr-2" /> Guardar Rota</>}

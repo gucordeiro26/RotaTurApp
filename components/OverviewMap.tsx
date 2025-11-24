@@ -6,10 +6,24 @@ import 'leaflet-routing-machine/dist/leaflet-routing-machine.css'
 import L from 'leaflet'
 import { useEffect } from 'react'
 
+// --- FIX PARA ÍCONES (Igual ao MapEditor) ---
+const fixLeafletIcons = () => {
+    if (typeof window !== 'undefined') {
+        // @ts-ignore
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        });
+    }
+};
+fixLeafletIcons();
+
 // --- Configuração dos Ícones ---
 const createIcon = (color: string) => {
     if (typeof window === 'undefined') return null;
-    
+
     return new L.Icon({
         iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -63,27 +77,22 @@ const Routing = ({ pontoInicio, pontoFim, pontosInteresse }: OverviewMapProps) =
                 extendToWaypoints: true,
                 missingRouteTolerance: 0
             },
-            // --- INÍCIO DA CORREÇÃO ---
-            // Adicionámos os tipos explícitos: i (number), wp (any), nWps (number)
-            createMarker: function(i: number, wp: any, nWps: number) {
-            // --- FIM DA CORREÇÃO ---
+            createMarker: function (i: number, wp: any, nWps: number) {
                 let iconColor = 'blue';
                 let title = 'Ponto de Interesse';
 
                 if (i === 0) {
                     iconColor = 'green';
                     title = 'Início';
-                } else if (i === nWps - 1 && pontoFim) { 
+                } else if (i === nWps - 1 && pontoFim) {
                     iconColor = 'red';
                     title = 'Fim';
                 }
 
                 const icon = createIcon(iconColor);
-                
+
                 if (!icon) return null;
 
-                // O return aqui precisa ser compatível com o que o Leaflet espera,
-                // usamos 'any' para evitar conflitos de tipos internos da biblioteca
                 return L.marker(wp.latLng, {
                     icon: icon,
                     draggable: false
@@ -118,12 +127,12 @@ export default function OverviewMap({ pontoInicio, pontoFim, pontosInteresse }: 
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            
+
             {pontoInicio && (
-                <Routing 
-                    pontoInicio={pontoInicio} 
-                    pontoFim={pontoFim} 
-                    pontosInteresse={pontosInteresse} 
+                <Routing
+                    pontoInicio={pontoInicio}
+                    pontoFim={pontoFim}
+                    pontosInteresse={pontosInteresse}
                 />
             )}
         </MapContainer>

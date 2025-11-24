@@ -3,19 +3,23 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet-geosearch/dist/geosearch.css'
-import L, { Icon } from 'leaflet'
-import { useEffect } from 'react'
+import L from 'leaflet'
+import { useEffect, useMemo } from 'react'
 import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch'
 
-// --- Ícones (sem alterações) ---
-const createIcon = (color: string) => new Icon({
-    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-});
-const startIcon = createIcon('green');
-const endIcon = createIcon('red');
-const interestIcon = createIcon('blue');
+// Função auxiliar para criar ícones de forma segura
+const createIcon = (color: string) => {
+    if (typeof window === 'undefined') return undefined; // Retorna undefined se não estiver no browser
+
+    return new L.Icon({
+        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+};
 
 export type Ponto = {
     lat: number;
@@ -23,7 +27,6 @@ export type Ponto = {
     nome?: string;
 }
 
-// --- Componentes SearchField e MapClickHandler (sem alterações) ---
 const SearchField = ({ onSearchResult }: { onSearchResult: (ponto: Ponto) => void }) => {
     const map = useMap();
     useEffect(() => {
@@ -44,16 +47,21 @@ const MapClickHandler = ({ onMapClick }: { onMapClick: (ponto: Ponto) => void })
     useMapEvents({
         async click(e) {
             const { lat, lng } = e.latlng;
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-            const data = await response.json();
-            const nomeDoLocal = data.display_name || `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-            onMapClick({ lat, lng, nome: nomeDoLocal });
+            // Usamos uma API pública simples para obter o nome do local (Reverse Geocoding)
+            // Se falhar, usa as coordenadas como nome
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await response.json();
+                const nomeDoLocal = data.display_name || `Ponto (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+                onMapClick({ lat, lng, nome: nomeDoLocal });
+            } catch (error) {
+                onMapClick({ lat, lng, nome: `Ponto (${lat.toFixed(3)}, ${lng.toFixed(3)})` });
+            }
         },
     });
     return null;
 }
 
-// --- Definição das Propriedades (sem o componente Routing) ---
 export type MapEditorProps = {
     initialCenter: { lat: number; lng: number; };
     pontoInicio: Ponto | null;
@@ -64,12 +72,19 @@ export type MapEditorProps = {
 
 const mapStyle = { height: '100%', width: '100%', borderRadius: '10px' };
 
+// Coordenadas aproximadas para limitar o mapa ao Brasil/América do Sul
 const southWest = L.latLng(-33.75, -73.98);
 const northEast = L.latLng(5.27, -32.41);
 const bounds = L.latLngBounds(southWest, northEast);
 
-// --- Componente MapEditor SIMPLIFICADO ---
 const MapEditor = ({ initialCenter, pontoInicio, pontoFim, pontosInteresse, onAddPonto }: MapEditorProps) => {
+
+    // --- CORREÇÃO: Criamos os ícones AQUI DENTRO, usando useMemo para performance ---
+    // Isso garante que eles sejam criados apenas no cliente, evitando o erro de "imagem não encontrada".
+    const startIcon = useMemo(() => createIcon('green'), []);
+    const endIcon = useMemo(() => createIcon('red'), []);
+    const interestIcon = useMemo(() => createIcon('blue'), []);
+
     return (
         <MapContainer
             center={[initialCenter.lat, initialCenter.lng]}
@@ -86,16 +101,26 @@ const MapEditor = ({ initialCenter, pontoInicio, pontoFim, pontosInteresse, onAd
             <SearchField onSearchResult={onAddPonto} />
             <MapClickHandler onMapClick={onAddPonto} />
 
-            {/* Marcadores (sem alterações) */}
-            {pontoInicio && <Marker position={[pontoInicio.lat, pontoInicio.lng]} icon={startIcon}><Popup>{pontoInicio.nome || 'Ponto de Início'}</Popup></Marker>}
-            {pontoFim && <Marker position={[pontoFim.lat, pontoFim.lng]} icon={endIcon}><Popup>{pontoFim.nome || 'Ponto Final'}</Popup></Marker>}
-            {pontosInteresse.map((ponto, index) => (
-                <Marker key={index} position={[ponto.lat, ponto.lng]} icon={interestIcon}>
-                    <Popup>{ponto.nome || `Ponto de Interesse #${index + 1}`}</Popup>
+            {/* Renderização dos Marcadores com verificação de ícone */}
+            {pontoInicio && startIcon && (
+                <Marker position={[pontoInicio.lat, pontoInicio.lng]} icon={startIcon}>
+                    <Popup>{pontoInicio.nome || 'Ponto de Início'}</Popup>
                 </Marker>
-            ))}
+            )}
 
-            {/* O componente <Routing /> foi completamente REMOVIDO */}
+            {pontoFim && endIcon && (
+                <Marker position={[pontoFim.lat, pontoFim.lng]} icon={endIcon}>
+                    <Popup>{pontoFim.nome || 'Ponto Final'}</Popup>
+                </Marker>
+            )}
+
+            {pontosInteresse.map((ponto, index) => (
+                interestIcon && (
+                    <Marker key={index} position={[ponto.lat, ponto.lng]} icon={interestIcon}>
+                        <Popup>{ponto.nome || `Ponto de Interesse #${index + 1}`}</Popup>
+                    </Marker>
+                )
+            ))}
         </MapContainer>
     )
 }

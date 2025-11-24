@@ -1,24 +1,26 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/app/contexts/UserContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Shield, User, Upload, Save, CheckCircle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Shield, User, Save, CheckCircle, Briefcase } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { cn } from "@/lib/utils"
 
 export default function UserProfilePage() {
-  const { user, profile, refreshProfile } = useUser()
+  const { user, profile } = useUser()
   const router = useRouter()
   const [nome, setNome] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
-  const [successType, setSuccessType] = useState<'name' | 'publisher' | ''>('')
+
+  const hasPublisherAccess = profile?.tipo_perfil === 'publicador' || profile?.tipo_perfil === 'admin';
 
   useEffect(() => {
     if (profile) {
@@ -30,35 +32,34 @@ export default function UserProfilePage() {
     if (!user) return
     setIsLoading(true)
     setSuccessMessage("")
-    setSuccessType('')
 
     try {
-      const { error } = await supabase
+      // 1. Tenta atualizar e pede os dados de volta (.select()) para confirmar
+      const { data, error } = await supabase
         .from('perfis')
         .update({ nome_completo: nome })
         .eq('id', user.id)
+        .select()
 
       if (error) {
-        alert("Erro ao atualizar perfil: " + error.message)
-        setIsLoading(false)
-        return
+        throw error
       }
 
-      setSuccessMessage("✓ Perfil atualizado com sucesso!")
-      setSuccessType('name')
-      
-      // Atualizar o contexto
-      await refreshProfile()
-      
-      // Limpar mensagem após 3 segundos
-      setTimeout(() => {
-        setSuccessMessage("")
-        setSuccessType('')
-        setIsLoading(false)
-      }, 3000)
-    } catch (err) {
-      console.error("Erro:", err)
-      alert("Erro ao atualizar perfil.")
+      // 2. Verifica se alguma linha foi realmente afetada
+      if (!data || data.length === 0) {
+        alert("A atualização não foi aplicada. Verifique as permissões do banco de dados.")
+      } else {
+        setSuccessMessage("Perfil atualizado com sucesso!")
+        // Recarrega a página após um breve delay para mostrar a mensagem
+        setTimeout(() => {
+          window.location.reload()
+        }, 1500)
+      }
+    } catch (error: any) {
+      console.error("Erro:", error)
+      alert(`Erro ao atualizar: ${error.message || "Erro desconhecido"}`)
+    } finally {
+      // 3. Garante que o botão é libertado sempre
       setIsLoading(false)
     }
   }
@@ -66,7 +67,7 @@ export default function UserProfilePage() {
   const handleBecomePublisher = async () => {
     if (!user) return
     const confirm = window.confirm("Ao tornar-se Publicador, você terá acesso ao painel para criar e gerir as suas próprias rotas turísticas. Deseja continuar?")
-    
+
     if (confirm) {
       setIsLoading(true)
       try {
@@ -75,113 +76,135 @@ export default function UserProfilePage() {
           .update({ tipo_perfil: 'publicador' })
           .eq('id', user.id)
 
-        if (error) {
-          alert("Erro ao atualizar permissões: " + error.message)
-          setIsLoading(false)
-          return
-        }
+        if (error) throw error
 
-        setSuccessMessage("✓ Parabéns! Agora você é um Publicador. Redirecionando...")
-        setSuccessType('publisher')
-        
-        // Atualizar o contexto e aguardar
-        await refreshProfile()
-        
-        // Redirecionar para o publisher dashboard após um pequeno delay
-        setTimeout(() => {
-          router.push('/publisher/dashboard')
-        }, 1500)
-      } catch (err) {
-        console.error("Erro:", err)
-        alert("Erro ao atualizar permissões.")
+        alert("Parabéns! Agora você é um Publicador. A página será recarregada.")
+        window.location.reload()
+      } catch (error: any) {
+        alert(`Erro ao atualizar permissões: ${error.message}`)
         setIsLoading(false)
       }
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900">Meu Perfil</h1>
+  const switchProfile = (target: 'user' | 'publisher') => {
+    if (target === 'publisher') {
+      if (window.confirm("Ir para o Painel do Publicador?")) {
+        router.push('/publisher/dashboard');
+      }
+    } else {
+      if (window.confirm("Ir para o Modo Turista?")) {
+        router.push('/user/dashboard');
+      }
+    }
+  }
 
-        {/* Cartão de Dados Pessoais */}
-        <Card>
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 pb-32">
+      <div className="max-w-3xl mx-auto space-y-8">
+
+        {/* --- SELETOR DE PERFIL --- */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Selecionar Perfil</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* Card TURISTA */}
+            <div
+              onClick={() => switchProfile('user')}
+              className={cn(
+                "relative p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-4",
+                "hover:border-green-500 hover:bg-green-50 bg-white border-gray-200 shadow-sm hover:shadow-md"
+              )}
+            >
+              <div className="p-3 bg-green-100 rounded-full shadow-inner">
+                <User className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Turista</h3>
+                <p className="text-xs text-gray-500">Explorar e navegar</p>
+              </div>
+            </div>
+
+            {/* Card PUBLICADOR */}
+            <div
+              onClick={() => hasPublisherAccess ? switchProfile('publisher') : handleBecomePublisher()}
+              className={cn(
+                "relative p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-4",
+                hasPublisherAccess
+                  ? "bg-white border-gray-200 hover:border-blue-500 hover:bg-blue-50 shadow-sm hover:shadow-md"
+                  : "border-dashed border-gray-300 bg-gray-50 opacity-80 hover:opacity-100"
+              )}
+            >
+              <div className={cn("p-3 rounded-full shadow-inner", hasPublisherAccess ? "bg-blue-100" : "bg-gray-200")}>
+                {hasPublisherAccess ? <Briefcase className="w-6 h-6 text-blue-600" /> : <Shield className="w-6 h-6 text-gray-500" />}
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Publicador</h3>
+                <p className="text-xs text-gray-500">{hasPublisherAccess ? "Gerir minhas rotas" : "Toque para ativar"}</p>
+              </div>
+              {hasPublisherAccess && (
+                <Badge className="absolute top-3 right-3 bg-blue-100 text-blue-700 hover:bg-blue-200 border-0 pointer-events-none">
+                  Gestão
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* --- FORMULÁRIO DE DADOS --- */}
+        <Card className="shadow-sm border-gray-200">
           <CardHeader>
-            <CardTitle>Informações Pessoais</CardTitle>
-            <CardDescription>Atualize os seus dados de identificação.</CardDescription>
+            <CardTitle>Meus Dados</CardTitle>
+            <CardDescription>Gerencie as suas informações pessoais.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center gap-6">
-              <Avatar className="h-24 w-24">
+              <Avatar className="h-20 w-20 border-2 border-gray-100 shadow-sm">
                 <AvatarImage src={profile?.url_avatar || undefined} />
-                <AvatarFallback className="text-2xl">{profile?.nome_completo?.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarFallback className="text-xl bg-gray-100 text-gray-600">
+                  {profile?.nome_completo?.charAt(0).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
-              {/* Futuramente: Botão de Upload de Avatar aqui */}
+              <div>
+                <p className="text-sm font-medium text-gray-900">Foto de Perfil</p>
+                <p className="text-xs text-gray-500">Gerido pelo sistema</p>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input id="email" value={user?.email || ""} disabled className="bg-gray-100" />
-              <p className="text-xs text-gray-500">O e-mail não pode ser alterado.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome Completo</Label>
-              <Input 
-                id="nome" 
-                value={nome} 
-                onChange={(e) => setNome(e.target.value)} 
-              />
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome">Nome Completo</Label>
+                <Input
+                  id="nome"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  className="bg-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input id="email" value={user?.email || ""} disabled className="bg-gray-50 text-gray-500" />
+              </div>
             </div>
 
             {successMessage && (
-              <div className={`flex items-center text-sm p-3 rounded-md ${
-                successType === 'publisher' 
-                  ? 'text-blue-600 bg-blue-50' 
-                  : 'text-green-600 bg-green-50'
-              }`}>
-                <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                <span>{successMessage}</span>
+              <div className="flex items-center text-green-700 text-sm bg-green-50 p-3 rounded-md border border-green-200">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {successMessage}
               </div>
             )}
           </CardContent>
-          <CardFooter className="border-t pt-6">
-            <Button onClick={handleUpdateProfile} disabled={isLoading}>
+          <CardFooter className="border-t pt-6 bg-gray-50/30">
+            <Button onClick={handleUpdateProfile} disabled={isLoading} className="w-full sm:w-auto bg-black hover:bg-gray-800 text-white">
               {isLoading ? "Salvando..." : <><Save className="w-4 h-4 mr-2" /> Salvar Alterações</>}
             </Button>
           </CardFooter>
         </Card>
 
-        {/* Cartão de Tipo de Conta (Apenas para quem AINDA NÃO é publicador/admin) */}
-        {profile?.tipo_perfil === 'usuario' && (
-          <Card className="border-blue-200 bg-blue-50">
-            <CardHeader>
-              <div className="flex items-center gap-2 text-blue-700">
-                <Shield className="w-6 h-6" />
-                <CardTitle className="text-xl">Quero Publicar Rotas</CardTitle>
-              </div>
-              <CardDescription className="text-blue-600">
-                Torne-se um Publicador para criar, editar e compartilhar as suas próprias experiências turísticas na plataforma.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc list-inside text-sm text-blue-800 space-y-1 mb-4">
-                <li>Acesso ao Painel de Controle</li>
-                <li>Ferramentas de criação de rotas com mapa interativo</li>
-                <li>Gestão de visibilidade das suas rotas</li>
-              </ul>
-              <Button onClick={handleBecomePublisher} className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
-                Ativar Modo Publicador
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Feedback Visual do Perfil Atual */}
-        <div className="flex justify-center mt-8">
-            <Badge variant="outline" className="px-4 py-2 text-sm uppercase tracking-wider text-gray-500">
-                Perfil Atual: <span className="font-bold ml-2 text-gray-900">{profile?.tipo_perfil}</span>
-            </Badge>
+        <div className="text-center pt-8">
+          <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">
+            RotaTur App v1.0
+          </p>
         </div>
       </div>
     </div>

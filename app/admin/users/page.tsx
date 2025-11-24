@@ -18,7 +18,7 @@ interface UserData {
   email?: string
   tipo_perfil: string
   url_avatar: string | null
-  created_at: string
+  criado_em: string
 }
 
 export default function UserManagement() {
@@ -36,7 +36,7 @@ export default function UserManagement() {
       const { data, error } = await supabase
         .from('perfis')
         .select('*')
-        .order('created_at', { ascending: false }) // Verifique se é 'created_at'
+        .order('criado_em', { ascending: false }) // Verifique se é 'criado_em'
 
       if (error) throw error
       setUsers(data || [])
@@ -120,7 +120,7 @@ export default function UserManagement() {
                         {getRoleIcon(user.tipo_perfil)}
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        Membro desde {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                        Membro desde {new Date(user.criado_em).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   </div>
