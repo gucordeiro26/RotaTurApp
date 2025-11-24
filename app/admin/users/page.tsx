@@ -18,7 +18,7 @@ interface UserData {
   email?: string
   tipo_perfil: string
   url_avatar: string | null
-  criado_em: string
+  created_at: string
 }
 
 export default function UserManagement() {
@@ -36,7 +36,7 @@ export default function UserManagement() {
       const { data, error } = await supabase
         .from('perfis')
         .select('*')
-        .order('criado_em', { ascending: false })
+        .order('created_at', { ascending: false }) // Verifique se é 'created_at'
 
       if (error) throw error
       setUsers(data || [])
@@ -52,14 +52,14 @@ export default function UserManagement() {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, tipo_perfil: newRole } : u))
 
     const { error } = await supabase
-      .from('perfis')
-      .update({ tipo_perfil: newRole })
-      .eq('id', userId)
+        .from('perfis')
+        .update({ tipo_perfil: newRole })
+        .eq('id', userId)
 
     if (error) {
-      console.error("Erro ao mudar perfil:", error)
-      alert("Erro ao atualizar permissão.")
-      fetchUsers() // Reverte em caso de erro
+        console.error("Erro ao mudar perfil:", error)
+        alert("Erro ao atualizar permissão.")
+        fetchUsers() // Reverte em caso de erro
     }
   }
 
@@ -72,92 +72,81 @@ export default function UserManagement() {
   }
 
   const filteredUsers = useMemo(() => {
-    return users.filter(user =>
-      (user.nome_completo || "").toLowerCase().includes(searchTerm.toLowerCase())
+    return users.filter(user => 
+        (user.nome_completo || "").toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [users, searchTerm])
 
-  if (loading) return <div className="flex justify-center items-center h-screen">Carregando usuários...</div>
+  if (loading) return <div className="flex justify-center items-center h-screen">A carregar usuários...</div>
 
   return (
     <RouteGuard allowedRoles={["admin"]}>
-      <div className="flex flex-col h-screen bg-gray-50 w-full">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b sticky top-0 z-40 flex-shrink-0">
-          <div className="px-3 py-2 flex items-center justify-between w-full">
-            <h1 className="text-base font-semibold truncate">Gerir Usuários</h1>
-            <Link href="/admin/dashboard" className="flex-shrink-0 ml-2">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-2 space-y-2 pb-20 w-full">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-            <Input
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 h-8 text-xs rounded-lg"
-            />
-          </div>
-
-          {/* Users List */}
-          <div className="space-y-2">
-            {filteredUsers.map((user) => (
-              <Card key={user.id} className="border-0 shadow-sm">
-                <CardContent className="p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    {/* User Info */}
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarImage src={user.url_avatar || undefined} />
-                        <AvatarFallback className="text-xs">{user.nome_completo?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1">
-                          <h3 className="text-xs font-medium truncate">{user.nome_completo || "Sem Nome"}</h3>
-                          {getRoleIcon(user.tipo_perfil)}
-                        </div>
-                        <p className="text-xs text-gray-500 truncate">
-                          {new Date(user.criado_em).toLocaleDateString('pt-BR')}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Role Selector */}
-                    <Select
-                      value={user.tipo_perfil}
-                      onValueChange={(val) => handleUpdateRole(user.id, val)}
-                    >
-                      <SelectTrigger className="w-20 h-7 text-xs flex-shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="usuario" className="text-xs">Usuário</SelectItem>
-                        <SelectItem value="publicador" className="text-xs">Publicador</SelectItem>
-                        <SelectItem value="admin" className="text-xs">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {filteredUsers.length === 0 && (
-              <Card className="border-0 shadow-sm">
-                <CardContent className="p-4 text-center">
-                  <p className="text-xs text-gray-500">Nenhum usuário encontrado.</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white shadow-sm border-b">
+        <div className="px-4 py-3 flex items-center space-x-3">
+          <Link href="/admin/dashboard">
+            <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /></Button>
+          </Link>
+          <h1 className="text-xl font-semibold">Gerenciamento de Usuários</h1>
         </div>
       </div>
+
+      <div className="p-4 space-y-4">
+        <div className="flex space-x-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Buscar usuários..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {filteredUsers.map((user) => (
+            <Card key={user.id}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <Avatar>
+                      <AvatarImage src={user.url_avatar || undefined} />
+                      <AvatarFallback>{user.nome_completo?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-medium text-sm truncate">{user.nome_completo || "Sem Nome"}</h3>
+                        {getRoleIcon(user.tipo_perfil)}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Membro desde {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Seletor de Perfil */}
+                  <Select 
+                        value={user.tipo_perfil} 
+                        onValueChange={(val) => handleUpdateRole(user.id, val)}
+                    >
+                        <SelectTrigger className="w-[130px] h-8 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="usuario">Usuário</SelectItem>
+                            <SelectItem value="publicador">Publicador</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {filteredUsers.length === 0 && <p className="text-center text-gray-500 mt-4">Nenhum usuário encontrado.</p>}
+        </div>
+      </div>
+    </div>
     </RouteGuard>
   )
 }

@@ -183,10 +183,6 @@ const Sidebar = React.forwardRef<
         { href: "/admin/users", label: "Gerir Utilizadores", icon: Users },
     ];
 
-    const minhasRotasLink = [
-        { href: "/publisher/routes", label: "Minhas Rotas", icon: Map },
-    ];
-
     // Hierarquia de permissões com acumulação
     let navLinks = [...touristLinks]; // Base: sempre começa com links de turista
 
@@ -194,8 +190,8 @@ const Sidebar = React.forwardRef<
         // Publicador: turista + publicador
         navLinks = [...touristLinks, ...publisherLinks];
     } else if (userProfile.tipo_perfil === 'admin') {
-        // Admin: apenas opções de admin + minhas rotas + perfil
-        navLinks = [...adminLinks, ...minhasRotasLink];
+        // Admin: turista + publicador + admin
+        navLinks = [...touristLinks, ...publisherLinks, ...adminLinks];
     }
 
     // Sempre adiciona "Meu Perfil" ao final

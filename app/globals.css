@@ -46,7 +46,6 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
-
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -87,37 +86,7 @@
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
-  }
-
-  /* --- CORREÇÃO MELHORADA PARA O MAPA EM MOBILE --- */
-  .leaflet-control-geosearch form {
-    max-width: 65vw !important;
-    /* Reduzi para 65% para garantir que cabe */
-    width: auto !important;
-    min-width: 200px;
-    top: 0;
-    left: 0;
-  }
-
-  /* Garante que o input de pesquisa não fique gigante */
-  .leaflet-control-geosearch form input {
-    min-width: 0 !important;
-    width: 100% !important;
-  }
-
-  /* Ajuste específico para telas muito pequenas */
-  @media (max-width: 640px) {
-    .leaflet-control-geosearch form {
-      margin-left: 5px !important;
-      margin-top: 5px !important;
-    }
-
-    /* Ajusta os botões de zoom para não ficarem colados */
-    .leaflet-left .leaflet-control {
-      margin-left: 5px;
-    }
   }
 }
