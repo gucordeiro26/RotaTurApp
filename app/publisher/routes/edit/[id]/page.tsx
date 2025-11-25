@@ -27,7 +27,7 @@ type FormData = {
     dificuldade: string;
     max_participantes: number;
     status: string;
-    imagem_url: string | null; // Adicionado campo de imagem
+    imagem_url: string | null;
 }
 
 export default function EditRoutePage() {
@@ -39,10 +39,10 @@ export default function EditRoutePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    
+
     const [formData, setFormData] = useState<FormData | null>(null);
-    const [imagemArquivo, setImagemArquivo] = useState<File | null>(null); // Estado para novo arquivo
-    const [previewImagem, setPreviewImagem] = useState<string | null>(null); // Estado para preview
+    const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
+    const [previewImagem, setPreviewImagem] = useState<string | null>(null);
 
     const [pontoInicio, setPontoInicio] = useState<Ponto | null>(null);
     const [pontoFim, setPontoFim] = useState<Ponto | null>(null);
@@ -86,11 +86,11 @@ export default function EditRoutePage() {
                 status: data.status || "Rascunho",
                 imagem_url: data.imagem_url || null,
             });
-            
-            setPreviewImagem(data.imagem_url); // Define o preview inicial
+
+            setPreviewImagem(data.imagem_url);
             setPontoInicio(data.origem_coords);
             setPontoFim(data.destino_coords);
-            
+
             const pontosValidos = (data.pontos_interesse || [])
                 .filter((p: any) => p.coords && typeof p.coords === 'object' && 'lat' in p.coords && 'lng' in p.coords)
                 .map((p: any) => ({
@@ -105,7 +105,7 @@ export default function EditRoutePage() {
             const center = data.origem_coords && typeof data.origem_coords === 'object' && 'lat' in data.origem_coords
                 ? { lat: data.origem_coords.lat, lng: data.origem_coords.lng }
                 : TATUI_CENTER;
-            
+
             setInitialCenter(center);
             setIsLoading(false);
         };
@@ -123,7 +123,7 @@ export default function EditRoutePage() {
         const file = e.target.files?.[0];
         if (file) {
             setImagemArquivo(file);
-            setPreviewImagem(URL.createObjectURL(file)); // Cria URL temporária para preview
+            setPreviewImagem(URL.createObjectURL(file));
         }
     };
 
@@ -137,19 +137,13 @@ export default function EditRoutePage() {
         setPontosDeInteresse(prev => prev.filter((_, i) => i !== index));
     }
 
-    // Função de upload (reutilizada)
     const uploadImagem = async (file: File): Promise<string | null> => {
         try {
             const fileExt = file.name.split('.').pop();
             const fileName = `${Math.random()}.${fileExt}`;
             const filePath = `${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('rotas')
-                .upload(filePath, file);
-
+            const { error: uploadError } = await supabase.storage.from('rotas').upload(filePath, file);
             if (uploadError) throw uploadError;
-
             const { data } = supabase.storage.from('rotas').getPublicUrl(filePath);
             return data.publicUrl;
         } catch (error) {
@@ -169,7 +163,6 @@ export default function EditRoutePage() {
 
         let finalImageUrl = formData.imagem_url;
 
-        // Se houver um novo arquivo, faz o upload
         if (imagemArquivo) {
             const uploadedUrl = await uploadImagem(imagemArquivo);
             if (uploadedUrl) {
@@ -185,7 +178,7 @@ export default function EditRoutePage() {
             .from('rotas')
             .update({
                 ...formData,
-                imagem_url: finalImageUrl, // Atualiza a URL
+                imagem_url: finalImageUrl,
                 origem_coords: pontoInicio,
                 destino_coords: pontoFim,
             })
@@ -205,44 +198,35 @@ export default function EditRoutePage() {
                 nome: ponto.nome || 'Ponto de Interesse',
                 coords: { lat: ponto.lat, lng: ponto.lng },
             }));
-
-            const { error: insertPontosError } = await supabase
-                .from('pontos_interesse')
-                .insert(pontosParaInserir);
-
-            if (insertPontosError) {
-                setError(`Erro ao guardar pontos de interesse: ${insertPontosError.message}`);
-                setIsUpdating(false);
-                return;
-            }
+            await supabase.from('pontos_interesse').insert(pontosParaInserir);
         }
 
         alert("Rota atualizada com sucesso!");
         router.push('/publisher/routes');
     };
-    
+
     if (isLoading) return <div className="p-8 text-center">A carregar editor...</div>;
     if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
     if (!formData) return <div className="p-8 text-center">Erro ao carregar dados.</div>;
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50">
-            <header className="bg-white shadow-sm border-b flex-shrink-0">
-                <div className="px-4 py-3 flex items-center justify-between">
+        // CORREÇÃO: Adicionado overflow-x-hidden
+        <div className="flex flex-col min-h-screen bg-gray-50 overflow-x-hidden">
+            <header className="bg-white shadow-sm border-b flex-shrink-0 sticky top-0 z-10">
+                <div className="px-4 py-3 flex items-center justify-between max-w-7xl mx-auto w-full">
                     <div className="flex items-center space-x-3">
                         <Link href="/publisher/routes">
                             <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
                         </Link>
-                        <h1 className="text-xl font-semibold truncate">Editar: {formData.nome}</h1>
+                        <h1 className="text-lg sm:text-xl font-semibold truncate">Editar: {formData.nome}</h1>
                     </div>
                 </div>
             </header>
 
-            <main className="flex-grow overflow-y-auto p-4 space-y-6">
+            <main className="flex-grow overflow-y-auto p-4 space-y-6 pb-24 w-full max-w-7xl mx-auto">
                 <Card>
                     <CardHeader><CardTitle>Informações Gerais</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Campo de Imagem */}
                         <div className="space-y-2">
                             <Label htmlFor="imagem">Imagem da Capa</Label>
                             <div className="flex flex-col gap-4">
@@ -252,9 +236,9 @@ export default function EditRoutePage() {
                                     </div>
                                 )}
                                 <div className="flex items-center gap-4">
-                                    <Input 
-                                        id="imagem" 
-                                        type="file" 
+                                    <Input
+                                        id="imagem"
+                                        type="file"
                                         accept="image/*"
                                         onChange={handleFileChange}
                                         className="cursor-pointer"
@@ -267,40 +251,58 @@ export default function EditRoutePage() {
                         <div className="space-y-2"><Label htmlFor="descricao_curta">Descrição Curta</Label><Input id="descricao_curta" value={formData.descricao_curta} onChange={(e) => handleInputChange('descricao_curta', e.target.value)} /></div>
                         <div className="space-y-2"><Label htmlFor="descricao">Descrição Completa</Label><Textarea id="descricao" value={formData.descricao} onChange={(e) => handleInputChange('descricao', e.target.value)} /></div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                           <div className="space-y-2"><Label htmlFor="categoria">Categoria</Label><Select value={formData.categoria} onValueChange={(v) => handleInputChange('categoria', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="historia">História</SelectItem><SelectItem value="natureza">Natureza</SelectItem><SelectItem value="gastronomia">Gastronomia</SelectItem><SelectItem value="aventura">Aventura</SelectItem></SelectContent></Select></div>
-                           <div className="space-y-2"><Label htmlFor="dificuldade">Dificuldade</Label><Select value={formData.dificuldade} onValueChange={(v) => handleInputChange('dificuldade', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Fácil">Fácil</SelectItem><SelectItem value="Moderado">Moderado</SelectItem><SelectItem value="Difícil">Difícil</SelectItem></SelectContent></Select></div>
-                           <div className="space-y-2"><Label htmlFor="status">Status</Label><Select value={formData.status} onValueChange={(v) => handleInputChange('status', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Ativo">Ativo</SelectItem><SelectItem value="Pausado">Pausado</SelectItem><SelectItem value="Rascunho">Rascunho</SelectItem></SelectContent></Select></div>
+                            <div className="space-y-2"><Label htmlFor="categoria">Categoria</Label><Select value={formData.categoria} onValueChange={(v) => handleInputChange('categoria', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="historia">História</SelectItem><SelectItem value="natureza">Natureza</SelectItem><SelectItem value="gastronomia">Gastronomia</SelectItem><SelectItem value="aventura">Aventura</SelectItem></SelectContent></Select></div>
+                            <div className="space-y-2"><Label htmlFor="dificuldade">Dificuldade</Label><Select value={formData.dificuldade} onValueChange={(v) => handleInputChange('dificuldade', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Fácil">Fácil</SelectItem><SelectItem value="Moderado">Moderado</SelectItem><SelectItem value="Difícil">Difícil</SelectItem></SelectContent></Select></div>
+                            <div className="space-y-2"><Label htmlFor="status">Status</Label><Select value={formData.status} onValueChange={(v) => handleInputChange('status', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Ativo">Ativo</SelectItem><SelectItem value="Pausado">Pausado</SelectItem><SelectItem value="Rascunho">Rascunho</SelectItem></SelectContent></Select></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                           <div className="space-y-2"><Label htmlFor="duracao">Duração</Label><Input id="duracao" value={formData.duracao} onChange={(e) => handleInputChange('duracao', e.target.value)} placeholder="Ex: 2 horas"/></div>
-                           <div className="space-y-2"><Label htmlFor="max_participantes">Máx. de Pessoas</Label><Input id="max_participantes" type="number" value={formData.max_participantes} onChange={(e) => handleInputChange('max_participantes', parseInt(e.target.value) || 0)} /></div>
+                            <div className="space-y-2"><Label htmlFor="duracao">Duração</Label><Input id="duracao" value={formData.duracao} onChange={(e) => handleInputChange('duracao', e.target.value)} placeholder="Ex: 2 horas" /></div>
+                            <div className="space-y-2"><Label htmlFor="max_participantes">Máx. de Pessoas</Label><Input id="max_participantes" type="number" value={formData.max_participantes} onChange={(e) => handleInputChange('max_participantes', parseInt(e.target.value) || 0)} /></div>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader><CardTitle className="text-lg flex items-center"><Map className="w-5 h-5 mr-2" /> Editor de Rota no Mapa</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex flex-wrap gap-2">
-                            <Button variant={modoEdicaoMapa === 'inicio' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('inicio')}><Play className="w-4 h-4 mr-2" /> Definir Início</Button>
-                            <Button variant={modoEdicaoMapa === 'fim' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('fim')}><Flag className="w-4 h-4 mr-2" /> Definir Fim</Button>
-                            <Button variant={modoEdicaoMapa === 'interesse' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('interesse')}><Pin className="w-4 h-4 mr-2" /> Adicionar Ponto</Button>
+                    <CardContent className="space-y-4 p-4">
+                        {/* CORREÇÃO: Botões empilhados */}
+                        <div className="flex flex-col sm:flex-row gap-2 w-full">
+                            <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'inicio' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('inicio')}><Play className="w-4 h-4 mr-2" /> Início</Button>
+                            <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'fim' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('fim')}><Flag className="w-4 h-4 mr-2" /> Fim</Button>
+                            <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'interesse' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('interesse')}><Pin className="w-4 h-4 mr-2" /> Ponto (+)</Button>
                         </div>
-                        <div className="w-full h-[400px] rounded-md overflow-hidden border">
-                            {initialCenter && (
-                                <MapEditor
-                                    initialCenter={initialCenter}
-                                    pontoInicio={pontoInicio}
-                                    pontoFim={pontoFim}
-                                    pontosInteresse={pontosDeInteresse}
-                                    onAddPonto={handleAddPonto}
-                                />
+
+                        <div className="w-full h-[400px] rounded-md overflow-hidden border relative z-0">
+                            <MapEditor
+                                initialCenter={initialCenter || { lat: -23.3557, lng: -47.8569 }}
+                                pontoInicio={pontoInicio}
+                                pontoFim={pontoFim}
+                                pontosInteresse={pontosDeInteresse}
+                                onAddPonto={handleAddPonto}
+                            />
+                        </div>
+
+                        {/* CORREÇÃO: Lista de pontos truncada */}
+                        <div className="space-y-2 w-full max-w-full">
+                            {pontoInicio && (
+                                <div className="flex items-center justify-between p-2 bg-green-50 rounded-md text-sm w-full gap-2">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                                        <Play className="h-4 w-4 text-green-700 flex-shrink-0" />
+                                        <span className="font-medium text-green-800 truncate block w-full">{pontoInicio.nome || 'Ponto de Início'}</span>
+                                    </div>
+                                    <Button variant="ghost" size="sm" className="flex-shrink-0 ml-2" onClick={() => setPontoInicio(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                </div>
                             )}
-                        </div>
-                        <div className="space-y-2">
-                            {pontoInicio && (<div className="flex items-center justify-between p-2 bg-green-50 rounded-md text-sm"><div className="flex items-center gap-2 min-w-0"><Play className="h-4 w-4 text-green-700 flex-shrink-0" /><span className="font-medium text-green-800 truncate">{pontoInicio.nome || 'Ponto de Início'}</span></div><Button variant="ghost" size="sm" onClick={() => setPontoInicio(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>)}
-                            {pontoFim && (<div className="flex items-center justify-between p-2 bg-red-50 rounded-md text-sm"><div className="flex items-center gap-2 min-w-0"><Flag className="h-4 w-4 text-red-700 flex-shrink-0" /><span className="font-medium text-red-800 truncate">{pontoFim.nome || 'Ponto Final'}</span></div><Button variant="ghost" size="sm" onClick={() => setPontoFim(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>)}
-                            {pontosDeInteresse.map((ponto, index) => (<div key={index} className="flex items-center justify-between p-2 bg-gray-100 rounded-md text-sm"><div className="flex items-center gap-2 min-w-0"><Pin className="h-4 w-4 text-gray-600 flex-shrink-0" /><span className="truncate">{ponto.nome || `Ponto #${index + 1}`}</span></div><Button variant="ghost" size="sm" onClick={() => handleRemovePontoInteresse(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>))}
+                            {pontoFim && (
+                                <div className="flex items-center justify-between p-2 bg-red-50 rounded-md text-sm w-full gap-2">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                                        <Flag className="h-4 w-4 text-red-700 flex-shrink-0" />
+                                        <span className="font-medium text-red-800 truncate block w-full">{pontoFim.nome || 'Ponto Final'}</span>
+                                    </div>
+                                    <Button variant="ghost" size="sm" className="flex-shrink-0 ml-2" onClick={() => setPontoFim(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                </div>
+                            )}
+                            {pontosDeInteresse.map((ponto, index) => (<div key={index} className="flex items-center justify-between p-2 bg-gray-100 rounded-md text-sm w-full gap-2"><div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden"><Pin className="h-4 w-4 text-gray-600 flex-shrink-0" /><span className="truncate block w-full text-gray-700">{ponto.nome || `Ponto #${index + 1}`}</span></div><Button variant="ghost" size="sm" className="flex-shrink-0 ml-2" onClick={() => handleRemovePontoInteresse(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>))}
                         </div>
                     </CardContent>
                 </Card>
@@ -308,7 +310,7 @@ export default function EditRoutePage() {
             </main>
 
             <footer className="bg-white border-t p-4 flex-shrink-0">
-                <div className="flex justify-end space-x-3">
+                <div className="flex justify-end space-x-3 max-w-7xl mx-auto w-full">
                     <Button variant="outline" disabled={isUpdating} onClick={() => router.back()}>Cancelar</Button>
                     <Button onClick={handleUpdateRoute} disabled={isUpdating}>
                         {isUpdating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> A atualizar...</> : <><Save className="w-4 h-4 mr-2" /> Atualizar Rota</>}

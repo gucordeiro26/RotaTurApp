@@ -46,6 +46,7 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -86,7 +87,51 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  .leaflet-control-geosearch form {
+    max-width: 60vw !important;
+    /* Mais agressivo: ocupa no máximo 60% da tela */
+    width: auto !important;
+    min-width: 200px;
+    top: 0;
+    left: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .leaflet-control-geosearch form input {
+    min-width: 0 !important;
+    width: 100% !important;
+    height: 36px;
+    padding-left: 8px;
+    font-size: 13px;
+    /* Fonte menor para caber mais texto */
+  }
+
+  /* Resultados da pesquisa */
+  .leaflet-control-geosearch .results {
+    width: 100% !important;
+    max-width: 60vw !important;
+    /* Garante que a lista de resultados também obedece */
+  }
+
+  @media (max-width: 640px) {
+    .leaflet-control-geosearch form {
+      margin-left: 4px !important;
+      margin-top: 4px !important;
+    }
+
+    .leaflet-left .leaflet-control {
+      margin-left: 4px;
+    }
+
+    .leaflet-touch .leaflet-control-layers,
+    .leaflet-touch .leaflet-bar {
+      border: none;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
   }
 }

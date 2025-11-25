@@ -130,7 +130,8 @@ export default function CreateRoutePage() {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-50">
+        // CORREÇÃO: Adicionado overflow-x-hidden para evitar scroll horizontal
+        <div className="flex flex-col min-h-screen bg-gray-50 overflow-x-hidden">
             <header className="bg-white shadow-sm border-b flex-shrink-0 sticky top-0 z-10">
                 <div className="px-4 py-3 flex items-center space-x-3 max-w-7xl mx-auto w-full">
                     <Link href="/publisher/routes">
@@ -167,15 +168,15 @@ export default function CreateRoutePage() {
 
                 <Card>
                     <CardHeader><CardTitle className="text-lg flex items-center"><Map className="w-5 h-5 mr-2" /> Editor de Rota no Mapa</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* CORREÇÃO: Botões empilhados no mobile */}
+                    <CardContent className="space-y-4 p-4">
+                        {/* CORREÇÃO: Botões empilhados em mobile */}
                         <div className="flex flex-col sm:flex-row gap-2 w-full">
                             <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'inicio' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('inicio')}><Play className="w-4 h-4 mr-2" /> Início</Button>
                             <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'fim' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('fim')}><Flag className="w-4 h-4 mr-2" /> Fim</Button>
                             <Button className="w-full sm:w-auto" variant={modoEdicaoMapa === 'interesse' ? 'default' : 'outline'} onClick={() => setModoEdicaoMapa('interesse')}><Pin className="w-4 h-4 mr-2" /> Ponto (+)</Button>
                         </div>
 
-                        <div className="w-full h-[300px] sm:h-[400px] md:h-[500px] rounded-md overflow-hidden border relative z-0">
+                        <div className="w-full h-[400px] rounded-md overflow-hidden border relative z-0">
                             <MapEditor
                                 initialCenter={{ lat: -23.3557, lng: -47.8569 }}
                                 pontoInicio={pontoInicio}
@@ -185,10 +186,27 @@ export default function CreateRoutePage() {
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            {pontoInicio && (<div className="flex items-center justify-between p-2 bg-green-50 rounded-md text-sm"><div className="flex items-center gap-2 min-w-0"><Play className="h-4 w-4 text-green-700 flex-shrink-0" /><span className="font-medium text-green-800 truncate">{pontoInicio.nome || 'Ponto de Início'}</span></div><Button variant="ghost" size="sm" onClick={() => setPontoInicio(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>)}
-                            {pontoFim && (<div className="flex items-center justify-between p-2 bg-red-50 rounded-md text-sm"><div className="flex items-center gap-2 min-w-0"><Flag className="h-4 w-4 text-red-700 flex-shrink-0" /><span className="font-medium text-red-800 truncate">{pontoFim.nome || 'Ponto Final'}</span></div><Button variant="ghost" size="sm" onClick={() => setPontoFim(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>)}
-                            {pontosDeInteresse.map((ponto, index) => (<div key={index} className="flex items-center justify-between p-2 bg-gray-100 rounded-md text-sm"><div className="flex items-center gap-2 min-w-0"><Pin className="h-4 w-4 text-gray-600 flex-shrink-0" /><span className="truncate">{ponto.nome || `Ponto #${index + 1}`}</span></div><Button variant="ghost" size="sm" onClick={() => handleRemovePontoInteresse(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>))}
+                        {/* CORREÇÃO: Lista de pontos ajustada para não quebrar layout */}
+                        <div className="space-y-2 w-full max-w-full">
+                            {pontoInicio && (
+                                <div className="flex items-center justify-between p-2 bg-green-50 rounded-md text-sm w-full gap-2">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                                        <Play className="h-4 w-4 text-green-700 flex-shrink-0" />
+                                        <span className="font-medium text-green-800 truncate block w-full">{pontoInicio.nome || 'Ponto de Início'}</span>
+                                    </div>
+                                    <Button variant="ghost" size="sm" className="flex-shrink-0 ml-2" onClick={() => setPontoInicio(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                </div>
+                            )}
+                            {pontoFim && (
+                                <div className="flex items-center justify-between p-2 bg-red-50 rounded-md text-sm w-full gap-2">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                                        <Flag className="h-4 w-4 text-red-700 flex-shrink-0" />
+                                        <span className="font-medium text-red-800 truncate block w-full">{pontoFim.nome || 'Ponto Final'}</span>
+                                    </div>
+                                    <Button variant="ghost" size="sm" className="flex-shrink-0 ml-2" onClick={() => setPontoFim(null)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                </div>
+                            )}
+                            {pontosDeInteresse.map((ponto, index) => (<div key={index} className="flex items-center justify-between p-2 bg-gray-100 rounded-md text-sm w-full gap-2"><div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden"><Pin className="h-4 w-4 text-gray-600 flex-shrink-0" /><span className="truncate block w-full text-gray-700">{ponto.nome || `Ponto #${index + 1}`}</span></div><Button variant="ghost" size="sm" className="flex-shrink-0 ml-2" onClick={() => handleRemovePontoInteresse(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>))}
                         </div>
                     </CardContent>
                 </Card>
