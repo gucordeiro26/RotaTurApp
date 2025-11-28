@@ -23,7 +23,7 @@ type RotaCompleta = {
     origem_coords: Ponto | null;
     destino_coords: Ponto | null;
     pontos_interesse: Ponto[];
-    imagem_url: string | null; // Adicionado
+    imagem_url: string | null;
     perfis: {
         nome_completo: string | null;
     } | null;
@@ -32,7 +32,7 @@ type RotaCompleta = {
 export default function RouteDetailsPage() {
     const params = useParams();
     const router = useRouter();
-    const { user, profile } = useUser();
+    const { user } = useUser();
     const routeId = params.id as string;
 
     const [route, setRoute] = useState<RotaCompleta | null>(null);
@@ -46,7 +46,7 @@ export default function RouteDetailsPage() {
             ssr: false,
         }
     ), []);
-    
+
     useEffect(() => {
         const fetchRouteDetails = async () => {
             if (!routeId) return;
@@ -61,7 +61,7 @@ export default function RouteDetailsPage() {
                 `)
                 .eq('id', routeId)
                 .single();
-            
+
             if (error || !data) {
                 console.error("Erro ao buscar detalhes da rota:", error);
                 setError("Não foi possível encontrar esta rota.");
@@ -78,47 +78,57 @@ export default function RouteDetailsPage() {
         if (!route || !route.origem_coords) return;
 
         const origin = `${route.origem_coords.lat},${route.origem_coords.lng}`;
-        
-        let destination = "";
+
+        let destination = origin;
         if (route.destino_coords) {
-            destination = `&destination=${route.destino_coords.lat},${route.destino_coords.lng}`;
-        } else {
-            destination = `&destination=${origin}`; 
+            destination = `${route.destino_coords.lat},${route.destino_coords.lng}`;
         }
 
-        let waypoints = "";
+        let mapUrl = `https://google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+
         if (route.pontos_interesse && route.pontos_interesse.length > 0) {
-            const points = route.pontos_interesse.map(p => `${p.lat},${p.lng}`).join('|');
-            waypoints = `&waypoints=${points}`;
+            const points = route.pontos_interesse
+                .filter(p => p.lat && p.lng)
+                .map(p => `${p.lat},${p.lng}`)
+                .join('|');
+
+            if (points.length > 0) {
+                mapUrl += `&waypoints=${points}`;
+            }
         }
 
-        const mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}${destination}${waypoints}&travelmode=driving`;
         window.open(mapUrl, '_blank');
     };
 
-    const renderActionButton = () => {
+    // --- CORREÇÃO: Mostra Maps para todos + Editar para o dono ---
+    const renderFooterActions = () => {
         if (!route) return null;
 
-        // Se o usuário é publicador E é o autor da rota, mostra opção de editar
-        if (profile?.tipo_perfil === 'publicador' && user && user.id === route.publicador_id) {
-            return (
-                <Link href={`/publisher/routes/edit/${route.id}`} passHref>
-                    <Button className="w-full" size="lg">
-                        <Edit className="mr-2 h-4 w-4" /> Editar Minha Rota
-                    </Button>
-                </Link>
-            );
-        }
+        const isOwner = user && user.id === route.publicador_id;
 
-        // Caso contrário (ou se for admin), mostra opção de abrir no mapa
         return (
-            <Button className="w-full bg-blue-600 hover:bg-blue-700" size="lg" onClick={handleOpenInMaps}>
-                <MapPin className="mr-2 h-4 w-4" /> Abrir no Google Maps
-            </Button>
+            <div className="flex flex-col gap-3 w-full">
+                {/* Botão Principal: Maps (Sempre visível) */}
+                <Button
+                    className="w-full bg-blue-600 hover:bg-blue-700 shadow-lg h-12 text-base"
+                    onClick={handleOpenInMaps}
+                >
+                    <MapPin className="mr-2 h-5 w-5" /> Abrir no Google Maps
+                </Button>
+
+                {/* Botão Secundário: Editar (Apenas para o dono) */}
+                {isOwner && (
+                    <Link href={`/publisher/routes/edit/${route.id}`} passHref className="w-full">
+                        <Button variant="outline" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50" size="lg">
+                            <Edit className="mr-2 h-4 w-4" /> Editar Minha Rota
+                        </Button>
+                    </Link>
+                )}
+            </div>
         );
     }
-    
-    if (isLoading) return <div className="p-8 text-center">A carregar detalhes...</div>;
+
+    if (isLoading) return <div className="p-8 text-center">Carregando detalhes...</div>;
     if (error || !route) return <div className="p-8 text-center text-red-600">{error}</div>;
 
     const getDifficultyColor = (difficulty: string) => {
@@ -139,7 +149,6 @@ export default function RouteDetailsPage() {
                 <h1 className="text-lg font-semibold truncate">{route.nome}</h1>
             </div>
 
-            {/* --- IMAGEM DA ROTA (BANNER) --- */}
             {route.imagem_url && (
                 <div className="w-full h-64 md:h-80 overflow-hidden relative">
                     <img src={route.imagem_url} alt={route.nome} className="w-full h-full object-cover" />
@@ -147,7 +156,7 @@ export default function RouteDetailsPage() {
                 </div>
             )}
 
-            <div className="p-4 space-y-6 pb-24 -mt-4 relative z-0"> 
+            <div className="p-4 space-y-6 pb-32 -mt-4 relative z-0">
                 <Card className="shadow-lg border-0">
                     <CardHeader>
                         <CardTitle className="text-3xl">{route.nome}</CardTitle>
@@ -170,11 +179,10 @@ export default function RouteDetailsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Mapa */}
                 <Card>
                     <CardHeader><CardTitle className="text-lg">Itinerário</CardTitle></CardHeader>
                     <CardContent className="p-0 overflow-hidden h-80 rounded-b-lg">
-                        <RouteViewerMap 
+                        <RouteViewerMap
                             pontoInicio={route.origem_coords}
                             pontoFim={route.destino_coords}
                             pontosInteresse={route.pontos_interesse}
@@ -183,9 +191,9 @@ export default function RouteDetailsPage() {
                 </Card>
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/90 backdrop-blur-md border-t z-20">
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t z-20 pb-6 sm:pb-4">
                 <div className="max-w-4xl mx-auto">
-                    {renderActionButton()}
+                    {renderFooterActions()}
                 </div>
             </div>
         </div>
