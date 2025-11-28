@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowLeft, Clock, Edit, AlertCircle, HardHat, MapPin } from 'lucide-react'
+import { ArrowLeft, Clock, Edit, HardHat, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import type { Ponto } from '@/components/OverviewMap'
 
@@ -66,7 +66,26 @@ export default function RouteDetailsPage() {
                 console.error("Erro ao buscar detalhes da rota:", error);
                 setError("Não foi possível encontrar esta rota.");
             } else {
-                setRoute(data as any);
+                // --- CORREÇÃO CRÍTICA AQUI ---
+                // O Supabase retorna os pontos de interesse com as coordenadas dentro de um objeto 'coords' (JSON).
+                // Precisamos extrair 'lat' e 'lng' para a raiz do objeto para que o Mapa e o Link funcionem.
+
+                const pontosFormatados = (data.pontos_interesse || []).map((p: any) => {
+                    // Tenta pegar de coords (se existir) ou da raiz
+                    const lat = p.coords?.lat ?? p.lat;
+                    const lng = p.coords?.lng ?? p.lng;
+                    return {
+                        lat: lat,
+                        lng: lng,
+                        nome: p.nome
+                    };
+                }).filter((p: any) => p.lat !== undefined && p.lng !== undefined); // Filtra pontos inválidos
+
+                // Atualiza o objeto rota com os pontos corrigidos
+                setRoute({
+                    ...data,
+                    pontos_interesse: pontosFormatados
+                } as any);
             }
             setIsLoading(false);
         };
@@ -79,18 +98,20 @@ export default function RouteDetailsPage() {
 
         const origin = `${route.origem_coords.lat},${route.origem_coords.lng}`;
 
+        // Se não houver destino, usa a origem (volta ao início)
         let destination = origin;
         if (route.destino_coords) {
             destination = `${route.destino_coords.lat},${route.destino_coords.lng}`;
         }
 
-        let mapUrl = `https://google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+        // --- URL UNIVERSAL DO GOOGLE MAPS ---
+        // Esta estrutura é a mais robusta para Navegação com Waypoints
+        let mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
 
         if (route.pontos_interesse && route.pontos_interesse.length > 0) {
             const points = route.pontos_interesse
-                .filter(p => p.lat && p.lng)
                 .map(p => `${p.lat},${p.lng}`)
-                .join('|');
+                .join('|'); // O Google Maps usa pipe '|' para separar waypoints
 
             if (points.length > 0) {
                 mapUrl += `&waypoints=${points}`;
@@ -100,7 +121,6 @@ export default function RouteDetailsPage() {
         window.open(mapUrl, '_blank');
     };
 
-    // --- CORREÇÃO: Mostra Maps para todos + Editar para o dono ---
     const renderFooterActions = () => {
         if (!route) return null;
 
@@ -128,7 +148,7 @@ export default function RouteDetailsPage() {
         );
     }
 
-    if (isLoading) return <div className="p-8 text-center">Carregando detalhes...</div>;
+    if (isLoading) return <div className="p-8 text-center">A carregar detalhes...</div>;
     if (error || !route) return <div className="p-8 text-center text-red-600">{error}</div>;
 
     const getDifficultyColor = (difficulty: string) => {

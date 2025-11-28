@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Shield, User, Save, CheckCircle, Briefcase } from "lucide-react"
+import { Shield, User, Save, CheckCircle, Briefcase, LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 
@@ -34,23 +34,18 @@ export default function UserProfilePage() {
     setSuccessMessage("")
 
     try {
-      // 1. Tenta atualizar e pede os dados de volta (.select()) para confirmar
       const { data, error } = await supabase
         .from('perfis')
         .update({ nome_completo: nome })
         .eq('id', user.id)
         .select()
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
 
-      // 2. Verifica se alguma linha foi realmente afetada
       if (!data || data.length === 0) {
         alert("A atualização não foi aplicada. Verifique as permissões do banco de dados.")
       } else {
         setSuccessMessage("Perfil atualizado com sucesso!")
-        // Recarrega a página após um breve delay para mostrar a mensagem
         setTimeout(() => {
           window.location.reload()
         }, 1500)
@@ -59,7 +54,6 @@ export default function UserProfilePage() {
       console.error("Erro:", error)
       alert(`Erro ao atualizar: ${error.message || "Erro desconhecido"}`)
     } finally {
-      // 3. Garante que o botão é libertado sempre
       setIsLoading(false)
     }
   }
@@ -96,6 +90,15 @@ export default function UserProfilePage() {
       if (window.confirm("Ir para o Modo Turista?")) {
         router.push('/user/dashboard');
       }
+    }
+  }
+
+  // --- NOVA FUNÇÃO: LOGOUT ---
+  const handleLogout = async () => {
+    const confirm = window.confirm("Tem a certeza que deseja sair da sua conta?");
+    if (confirm) {
+      await supabase.auth.signOut();
+      router.push('/');
     }
   }
 
@@ -201,7 +204,18 @@ export default function UserProfilePage() {
           </CardFooter>
         </Card>
 
-        <div className="text-center pt-8">
+        {/* --- BOTÃO DE SAIR --- */}
+        <div className="pt-4">
+          <Button
+            variant="destructive"
+            className="w-full h-12 text-base font-medium shadow-sm hover:bg-red-600"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-5 h-5 mr-2" /> Sair da Conta
+          </Button>
+        </div>
+
+        <div className="text-center pt-4">
           <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">
             RotaTur App v1.0
           </p>

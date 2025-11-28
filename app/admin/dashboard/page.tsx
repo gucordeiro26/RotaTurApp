@@ -42,9 +42,12 @@ export default function AdminDashboard() {
   ];
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
-  };
+    const confirm = window.confirm("Tem a certeza que deseja sair da sua conta?");
+    if (confirm) {
+      await supabase.auth.signOut();
+      router.push('/');
+    }
+  }
 
   useEffect(() => {
     const fetchDashboardData = async () => {
