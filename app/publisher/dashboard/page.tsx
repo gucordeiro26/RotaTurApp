@@ -22,46 +22,40 @@ export default function PublisherDashboard() {
     const [rotas, setRotas] = useState<Rota[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [stats, setStats] = useState([
-        { title: "Total de Rotas", value: "0", icon: Map, color: "bg-blue-500", href: "/publisher/routes" },
-        { title: "Publicadas", value: "0", icon: CheckCircle, color: "bg-green-500", href: "/publisher/routes" },
-        { title: "Rascunhos", value: "0", icon: FileText, color: "bg-orange-500", href: "/publisher/routes" },
+        { title: "Total de Rotas", value: "0", icon: Map, color: "from-blue-500 to-blue-700", href: "/publisher/routes" },
+        { title: "Publicadas", value: "0", icon: CheckCircle, color: "from-green-500 to-green-700", href: "/publisher/routes" },
+        { title: "Rascunhos", value: "0", icon: FileText, color: "from-orange-500 to-amber-600", href: "/publisher/routes" },
     ])
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user?.id) return;
+            if (!user?.id) return
 
-            setIsLoading(true);
+            setIsLoading(true)
 
-            const { data: rotasData, error: rotasError } = await supabase
-                .from('rotas')
-                .select('id, nome, status, criado_em')
-                .eq('publicador_id', user.id)
-                .order('criado_em', { ascending: false });
+            const { data: rotasData, error } = await supabase
+                .from("rotas")
+                .select("id, nome, status, criado_em")
+                .eq("publicador_id", user.id)
+                .order("criado_em", { ascending: false })
 
-            if (rotasError) {
-                console.error("Erro ao buscar rotas:", rotasError);
-            } else {
-                const rotas = rotasData as Rota[] || [];
-                setRotas(rotas);
+            if (!error && rotasData) {
+                const rotas = rotasData as Rota[]
 
-                const total = rotas.length;
-                const ativas = rotas.filter(r => r.status === 'Ativo').length;
-                const rascunhos = rotas.filter(r => r.status === 'Rascunho').length;
+                setRotas(rotas)
 
                 setStats([
-                    { title: "Total de Rotas", value: String(total), icon: Map, color: "bg-blue-500", href: "/publisher/routes" },
-                    { title: "Publicadas", value: String(ativas), icon: CheckCircle, color: "bg-green-500", href: "/publisher/routes" },
-                    { title: "Rascunhos", value: String(rascunhos), icon: FileText, color: "bg-orange-500", href: "/publisher/routes" },
-                ]);
+                    { title: "Total de Rotas", value: rotas.length.toString(), icon: Map, color: "from-blue-500 to-blue-700", href: "/publisher/routes" },
+                    { title: "Publicadas", value: rotas.filter(r => r.status === "Ativo").length.toString(), icon: CheckCircle, color: "from-green-500 to-green-700", href: "/publisher/routes" },
+                    { title: "Rascunhos", value: rotas.filter(r => r.status === "Rascunho").length.toString(), icon: FileText, color: "from-orange-500 to-amber-600", href: "/publisher/routes" },
+                ])
             }
-            setIsLoading(false);
+
+            setIsLoading(false)
         }
 
-        if (user?.id) {
-            fetchData();
-        }
-    }, [user?.id]);
+        fetchData()
+    }, [user?.id])
 
     if (isLoading) {
         return (
@@ -72,42 +66,49 @@ export default function PublisherDashboard() {
                 </div>
                 <Skeleton className="h-64 w-full" />
             </div>
-        );
+        )
     }
 
     return (
-        <div className="min-h-screen bg-gray-50/50">
-            {/* CORREÇÃO: Header fixo e responsivo */}
-            <div className="bg-white border-b sticky top-0 z-10">
-                <div className="px-4 py-4 flex items-center justify-between max-w-7xl mx-auto w-full">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm">
-                            <LayoutDashboard className="w-5 h-5 text-white" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-32">
+
+            {/* HEADER MODERNO */}
+            <header className="bg-white/80 backdrop-blur-md border-b shadow-sm sticky top-0 z-10">
+                <div className="px-4 py-4 max-w-7xl mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                            <LayoutDashboard className="w-6 h-6 text-white" />
                         </div>
-                        <h1 className="text-lg font-bold text-gray-900">Painel do Publicador</h1>
+                        <h1 className="text-xl text-gray-800 tracking-tight">
+                            Painel do Publicador
+                        </h1>
                     </div>
+
                     <Link href="/publisher/routes/create">
-                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                            <Plus className="w-4 h-4 mr-0 sm:mr-2" /> <span className="hidden sm:inline">Nova Rota</span>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shadow-md">
+                            <Plus className="w-4 h-4 mr-2" /> Nova Rota
                         </Button>
                     </Link>
                 </div>
-            </div>
+            </header>
 
-            <div className="p-4 space-y-6 w-full max-w-7xl mx-auto pb-24">
+            {/* CONTEÚDO */}
+            <div className="p-4 max-w-7xl mx-auto space-y-8">
 
-                {/* CORREÇÃO: Grid 1 coluna no mobile */}
+                {/* CARDS DE ESTATÍSTICAS */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {stats.map((stat, index) => (
-                        <Link href={stat.href} key={index} className="block">
-                            <Card className="border-none shadow-sm hover:shadow-md transition-all cursor-pointer hover:bg-gray-50/50 group">
-                                <CardContent className="p-5 flex items-center space-x-4">
-                                    <div className={`w-12 h-12 ${stat.color} rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
-                                        <stat.icon className="w-6 h-6 text-white" />
+                        <Link href={stat.href} key={index}>
+                            <Card className="shadow-sm border-0 hover:shadow-lg transition-all rounded-xl cursor-pointer bg-white overflow-hidden group">
+                                <CardContent className="p-5 flex items-center gap-4">
+                                    <div className={`w-14 h-14 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
+                                        <stat.icon className="w-7 h-7 text-white" />
                                     </div>
                                     <div>
-                                        <p className="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{stat.value}</p>
-                                        <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                                        <p className="text-3xl font-extrabold text-gray-900 group-hover:text-blue-700 transition-colors">
+                                            {stat.value}
+                                        </p>
+                                        <p className="text-sm text-gray-500">{stat.title}</p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -115,36 +116,40 @@ export default function PublisherDashboard() {
                     ))}
                 </div>
 
-                <Card className="border-none shadow-sm">
-                    <CardHeader className="pb-3">
+                {/* LISTA DE ROTAS */}
+                <Card className="border-none shadow-sm rounded-xl">
+                    <CardHeader>
                         <div className="flex items-center justify-between">
                             <div>
                                 <CardTitle className="text-lg font-bold">Rotas Recentes</CardTitle>
-                                <CardDescription>As suas últimas criações</CardDescription>
+                                <CardDescription>Suas últimas rotas criadas</CardDescription>
                             </div>
                             <Link href="/publisher/routes">
                                 <Button variant="outline" size="sm" className="hidden sm:flex">Ver Todas</Button>
                             </Link>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-0 p-0 sm:p-6">
+
+                    <CardContent className="p-0">
                         {rotas.length > 0 ? (
-                            <div className="divide-y divide-gray-100">
-                                {rotas.slice(0, 5).map((rota) => (
-                                    <div key={rota.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 hover:bg-gray-50/50 transition-colors gap-3">
-                                        <div className="flex-1 min-w-0 w-full">
+                            <div className="divide-y border-t rounded-b-xl">
+                                {rotas.slice(0, 6).map((rota) => (
+                                    <div key={rota.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-4 hover:bg-gray-50 transition-all gap-3">
+                                        <div className="flex-1 min-w-0">
                                             <h4 className="font-semibold text-gray-900 truncate">{rota.nome}</h4>
-                                            <p className="text-xs text-gray-500 mt-0.5">
-                                                Criado em {new Date(rota.criado_em).toLocaleDateString('pt-BR')}
+                                            <p className="text-xs text-gray-500">
+                                                Criado em {new Date(rota.criado_em).toLocaleDateString("pt-BR")}
                                             </p>
                                         </div>
-                                        <div className="flex items-center justify-between w-full sm:w-auto gap-3">
-                                            <Badge variant={rota.status === "Ativo" ? "default" : "secondary"} className="capitalize px-3 py-1">
+
+                                        <div className="flex items-center gap-3">
+                                            <Badge variant={rota.status === "Ativo" ? "default" : "secondary"} className="capitalize px-3 py-1 shadow-sm">
                                                 {rota.status}
                                             </Badge>
+
                                             <Link href={`/publisher/routes/edit/${rota.id}`}>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600">
-                                                    <ArrowUpRight className="w-4 h-4" />
+                                                    <ArrowUpRight className="w-5 h-5" />
                                                 </Button>
                                             </Link>
                                         </div>
@@ -154,9 +159,9 @@ export default function PublisherDashboard() {
                         ) : (
                             <div className="text-center py-12 text-gray-500">
                                 <Map className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                                <p>Você ainda não criou nenhuma rota.</p>
+                                <p>Nenhuma rota criada ainda.</p>
                                 <Link href="/publisher/routes/create">
-                                    <Button variant="link" className="mt-2">Começar agora</Button>
+                                    <Button variant="link" className="mt-2">Criar agora</Button>
                                 </Link>
                             </div>
                         )}
